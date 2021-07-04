@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  May 2021
-# Version 1.3
+# Last update :  July 2021
+# Version 1.4
 # Licence GPL v3
 #--------
 
@@ -51,12 +51,17 @@
     w <- which(!is.na(mn2[]))
     ww <- data.frame(mn1[w],v[w])
     
-    wm <- app(mn2,function(x) {
+    wm <- sapply(mn2[w][,1],function(x,...) {
       min(((x - ww[,1]) ^ 2) / ww[,2])
-    })
+    },na.rm=TRUE)
+    wm2 <- rast(mn2)
+    wm2[w] <- wm
+    # wm <- app(mn2,function(x) {
+    #   min(((x - ww[,1]) ^ 2) / ww[,2])
+    # })
     
-    if (i == 1) .sed <- wm
-    else .sed <- .sed + wm
+    if (i == 1) .sed <- wm2
+    else .sed <- .sed + wm2
   }
   
   sqrt(.sed)
@@ -145,12 +150,18 @@
     w <- which(!is.na(mn2[]))
     ww <- data.frame(mn1[w],v[w])
     
-    wm <- app(mn2,function(x) {
+    wm <- sapply(mn2[w][,1],function(x,...) {
       min(((x - ww[,1]) ^ 2) / ww[,2])
-    })
+    },na.rm=TRUE)
+    wm2 <- rast(mn2)
+    wm2[w] <- wm
     
-    if (i == 1) .sed <- wm
-    else .sed <- .sed + wm
+    # wm <- app(mn2,function(x) {
+    #   min(((x - ww[,1]) ^ 2) / ww[,2])
+    # })
+    # 
+    if (i == 1) .sed <- wm2
+    else .sed <- .sed + wm2
   }
   
   sqrt(.sed)
