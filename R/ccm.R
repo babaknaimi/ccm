@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
 # Last update :  Sep. 2021
-# Version 1.5
+# Version 1.8
 # Licence GPL v3
 #--------
 
@@ -270,11 +270,10 @@
     sid <- c(sid, pxy$id)               # append i-th PC1/PC2 combination to previous 
     
     if(nrow(fxy)>0){                    # kNN search unless no-analogue climate
-      knn <- data.frame(yaImpute::ann(as.matrix(fxy[,-1]), as.matrix(pxy[,-1]), k=1)$knnIndexDist)      
+      knn <- data.frame(yaImpute::ann(as.matrix(fxy[,-1]), as.matrix(pxy[,-1]), k=1,verbose=FALSE)$knnIndexDist)      
       tid <- c(tid, fxy[knn[,1],"id"]) # the IDs of the closest matches  
       d <- c(d, sqrt(knn[,2]))         # their corresponding geographic distances
-    }
-    else {                              # else statement for no-analogue climates
+    } else {                              # else statement for no-analogue climates
       tid <- c(tid, rep(NA,nrow(pxy))) # flag destinations as missing for no analogues
       d <- c(d, rep(Inf,nrow(pxy)))    # flag distances as infinity for no analogues
     }
@@ -340,7 +339,7 @@
     } 
   }
   #-------
-  spatialgr <- raster()
+  spatialgr <- raster(basr)
   temporalgr <- futr - basr #overall temporal gradient between the two time periods
   tyear <- temporalgr / nyears #temporal gradient per year; nyears is the number of years between the two time periods
   
@@ -370,25 +369,32 @@
 
 #----------
 if (!isGeneric("ccm")) {
-  setGeneric("ccm", function(p,tmin,tmax,tmean,stat,t1,t2,extreme,longlat,nyears,...)
+  setGeneric("ccm", function(p,tmin,tmax,tmean,stat,t1,t2,extreme,longlat,ny,...)
     standardGeneric("ccm"))
 }
 
 setMethod('ccm', signature(p='RasterStackBrickTS'),
-          function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,longlat,nyears,...) {
+          function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,longlat,ny,...) {
             if (missing(p)) p <- NULL
             if (missing(tmin)) tmin <- NULL
             if (missing(tmax)) tmax <- NULL
             if (missing(tmean)) tmean <- NULL
+            
+            
+            w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+            l1 <- c('p','tmin','tmax','tmean')[w[1]]
+            
+            if (missing(ny)) {
+              ny <- nyears(eval(get(l1))@time)
+            }
+            
             if (missing(longlat)) {
-              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-              l1 <- c('p','tmin','tmax','tmean')[w[1]]
-              longlat <- is.projected(crs(get(l1)@raster))
+              longlat <- is.projected(crs(eval(get(l1))@raster))
               if (is.na(longlat)) {
-                longlat <- .is.projected(get(l1)@raster)
+                longlat <- .is.projected(eval(get(l1))@raster)
               }
             }
-            if (missing(nyears)) nyears <- nyears(get(l1)@time)
+            
             
             if (stat == 'sed') {
               .sed(p,tmin,tmax,tmean,t1=t1,t2=t2)
@@ -458,24 +464,24 @@ setMethod('ccm', signature(p='RasterStackBrickTS'),
               .analogusClimate(k1,k2)
               
             } else if (stat == 've') {
-              nl <- length(which(c(is.null(p),is.null(tmin),is.null(tmax),is.null(tmean))))
+              nl <- length(which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean))))
               if (nl > 2) {
                 stop('The velocity function can work with one or two climate variables. You may take the first two components from a PCA transformation when the variables are more than two...!')
               }
               if (nl == 1) {
                 w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
                 l1 <- c('p','tmin','tmax','tmean')[w[1]]
-                p1 <- calc(get(l1)@raster[[t1]], mean)
-                f1 <- calc(get(l1)@raster[[t2]], mean)
-                .vel(p1,f1,nyears=nyears,longlat=longlat)
+                p1 <- calc(eval(get(l1))[[t1]]@raster, mean)
+                f1 <- calc(eval(get(l1))[[t2]]@raster, mean)
+                .vel(p1,f1,nyears=ny,longlat=longlat)
               } else {
                 w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
                 l1 <- c('p','tmin','tmax','tmean')[w[1]]
                 l2 <- c('p','tmin','tmax','tmean')[w[2]]
-                p1 <- calc(get(l1)@raster[[t1]], mean)
-                p2 <- calc(get(l1)@raster[[t2]], mean)
-                f1 <- calc(get(l2)@raster[[t1]], mean)
-                f2 <- calc(get(l2)@raster[[t2]], mean)
+                p1 <- calc(eval(get(l1))[[t1]]@raster, mean)
+                f1 <- calc(eval(get(l1))[[t2]]@raster, mean)
+                p2 <- calc(eval(get(l2))[[t1]]@raster, mean)
+                f2 <- calc(eval(get(l2))[[t2]]@raster, mean)
                 .velocM(p1,p2,f1,f2,...)
               }
             } else stop('stat is unknown...!')
@@ -486,7 +492,7 @@ setMethod('ccm', signature(p='RasterStackBrickTS'),
 
 #----------------
 setMethod('ccm', signature(p='RasterStackBrick'),
-          function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,dates,longlat,nyears,...) {
+          function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,dates,longlat,ny,...) {
             if (missing(p)) p <- NULL
             if (missing(tmin)) tmin <- NULL
             if (missing(tmax)) tmax <- NULL
@@ -572,27 +578,27 @@ setMethod('ccm', signature(p='RasterStackBrick'),
               k2 <- kgc(apply.months(prt2,dates=dates[t2]),apply.months(tmin2,dates=dates[t2]),apply.months(tmax2,dates=dates[t2]),apply.months(tmean2,dates=dates[t2]))
               .analogusClimate(k1,k2)
             } else if (stat == 've') {
-              nl <- length(which(c(is.null(p),is.null(tmin),is.null(tmax),is.null(tmean))))
+              nl <- length(which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean))))
               if (nl > 2) {
                 stop('The velocity function can work with one or two climate variables. You may take the first two components from a PCA transformation when the variables are more than two...!')
               }
               if (nl == 1) {
-                if (missing(nyears)) {
-                  if (!missing(dates)) nyears <- nyears(dates)
-                  else stop('nyears should be specified...!')
+                if (missing(ny)) {
+                  if (!missing(dates)) ny <- nyears(dates)
+                  else stop('ny (number of years) should be specified...!')
                 }
                 w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
                 l1 <- c('p','tmin','tmax','tmean')[w[1]]
                 p1 <- calc(get(l1)[[t1]], mean)
                 f1 <- calc(get(l1)[[t2]], mean)
-                .vel(p1,f1,nyears=nyears,longlat=longlat)
+                .vel(p1,f1,nyears=ny,longlat=longlat)
               } else {
                 w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
                 l1 <- c('p','tmin','tmax','tmean')[w[1]]
                 l2 <- c('p','tmin','tmax','tmean')[w[2]]
                 p1 <- calc(get(l1)[[t1]], mean)
-                p2 <- calc(get(l1)[[t2]], mean)
-                f1 <- calc(get(l2)[[t1]], mean)
+                f1 <- calc(get(l1)[[t2]], mean)
+                p2 <- calc(get(l2)[[t1]], mean)
                 f2 <- calc(get(l2)[[t2]], mean)
                 .velocM(p1,p2,f1,f2,...)
               }
