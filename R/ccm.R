@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  July 2021
-# Version 1.4
+# Last update :  Sep. 2021
+# Version 1.5
 # Licence GPL v3
 #--------
 
@@ -240,18 +240,155 @@
 }
 #-------
 
-if (!isGeneric("ccm")) {
-  setGeneric("ccm", function(p,tmin,tmax,tmean,stat,t1,t2,extreme,...)
-    standardGeneric("ccm"))
+.velocM <- function(p1,p2,f1,f2,log=TRUE,...) {
+  # based on the script provided in Hamnan et al. (2014)
+  w <- which(!is.na(p1[]))
+  
+  present1 <- as.data.frame(p1)[w,]
+  present2 <- as.data.frame(p2)[w,]
+  future1  <- as.data.frame(f1)[w,]
+  future2  <- as.data.frame(f2)[w,]
+  
+  idxy <- data.frame(cbind(id=1:length(present1),xyFromCell(p1,w)) )  # data frame of IDs and XY coords
+  b <- (max(present1)-min(present1))/120  # bin size for 120 PC1 bins
+  
+  pr1 <- round(present1/b)              # convert PC1 to 120 bins via rounding
+  pr2 <- round(present2/b)              # convert PC2 to <120 bins via rounding
+  fu1 <- round(future1/b)               # same for future PC1
+  fu2 <- round(future2/b)               # same for future PC2
+  p  <- paste(pr1,pr2)                         # PC1/PC2 combinations in present climate
+  f  <- paste(fu1,fu2)                         # PC1/PC2 combinations in future climate
+  u  <- unique(p)[order(unique(p))]          # list of unique PC1/PC2 combinations
+  
+  sid <- c()                                 # empty vector for source IDs
+  tid <- c()                                 # empty vector for target IDs
+  d   <- c()                                 # empty vector for distances
+  
+  for(i in u){                          # loop for each unique PC1/PC2 combination
+    pxy <- idxy[which(p==i),]           # coordinates of i-th combination in present
+    fxy <- idxy[which(f==i),]           # coordinates of i-th combination in future
+    sid <- c(sid, pxy$id)               # append i-th PC1/PC2 combination to previous 
+    
+    if(nrow(fxy)>0){                    # kNN search unless no-analogue climate
+      knn <- data.frame(yaImpute::ann(as.matrix(fxy[,-1]), as.matrix(pxy[,-1]), k=1)$knnIndexDist)      
+      tid <- c(tid, fxy[knn[,1],"id"]) # the IDs of the closest matches  
+      d <- c(d, sqrt(knn[,2]))         # their corresponding geographic distances
+    }
+    else {                              # else statement for no-analogue climates
+      tid <- c(tid, rep(NA,nrow(pxy))) # flag destinations as missing for no analogues
+      d <- c(d, rep(Inf,nrow(pxy)))    # flag distances as infinity for no analogues
+    }
+  }
+  
+  sxy <- merge(sid, idxy, by.y="id", all.x=TRUE, all.y=FALSE, sort=FALSE)[2:3]  # source coordinates
+  txy <- merge(tid, idxy, by.y="id", all.x=TRUE, all.y=FALSE, sort=FALSE)[2:3]  # target coordinates
+  names(txy)=c("target_x","target_y")
+  names(sxy)=c("x","y")
+  outtab <- cbind(id=sid, sxy, txy, distance=d)   
+  # writes out log10 velocities and distances multiplied by 100 in ESRI ASCII format
+  # conversion: -200=0.01km, -100=0.1km, 0=1km, 100=10km, 200=100km etc.
+  out=merge(idxy, outtab[,c(2,3,6)], by=c("y","x"), sort=F)
+  out$distance[out$distance==Inf] <- 10000  # sets no analogue to 10,000km
+  out$distance[out$distance==0] <- 0.5  # sets zero distance to 0.5km (1/2 cell size)
+  #out$logDist=round(log10(out$distance)*100)
+  #out$logSpeed=round(log10(out$distance/50)*100)
+  r <- raster(p1)
+  if (log) r[cellFromXY(r,out[,c(2,1)])] <- round(log10(out$distance)*100)
+  else r[cellFromXY(r,out[,c(2,1)])] <- out$distance
+  r
+}
+
+#---------
+.vel <- function(basr,futr,nyears,longlat=TRUE,...) {
+  # The function is based on the script that is kindly provided by Raquel Garcia following the paper Garcia et al. (2014)
+  nc = ncol(basr) 
+  nr = nrow(basr) 
+  resolution = xres(basr) 
+  basm = matrix(getValues(basr), nrow = nr, ncol = nc, byrow = TRUE)  
+  #-------
+  lats = yFromRow(basr,1:nrow(basr)) 
+  longDist = NULL 
+  for(i in 1:length(lats)) {
+    longDist[i] = (pointDistance(c(0,lats[i]),c(resolution,lats[i]),longlat=longlat)) / 1000
+  } 
+  #----
+  spatialg = matrix(NA, nrow=nr, ncol=nc) 
+  if (longlat) {
+    for(i in 2:(nr-1)) {
+      for(j in 2:(nc-1)) {
+        if(!is.na(basm[i,j])) {
+          xDist = longDist[i]
+          
+          NS = (basm[i-1,j] - basm[i+1,j]) / (2*111.3195*resolution)
+          EW = (basm[i,j-1] - basm[i,j+1]) / (2*xDist)
+          
+          spatialg[i,j] = sqrt(NS^2 + EW^2)
+        }
+      }
+    } 
+  } else {
+    for(i in 2:(nr-1)) {
+      for(j in 2:(nc-1)) {
+        if(!is.na(basm[i,j])) {
+          xDist = longDist[i]
+          
+          NS = (basm[i-1,j] - basm[i+1,j]) / (2*resolution)
+          EW = (basm[i,j-1] - basm[i,j+1]) / (2*xDist)
+          spatialg[i,j] = sqrt(NS^2 + EW^2)
+        }
+      }
+    } 
+  }
+  #-------
+  spatialgr <- raster()
+  temporalgr <- futr - basr #overall temporal gradient between the two time periods
+  tyear <- temporalgr / nyears #temporal gradient per year; nyears is the number of years between the two time periods
+  
+  
+  spatialgr <- setValues(spatialgr, spatialg)
+  
+  
+  
+  ### computing climate change velocity
+  
+  ccvel <- abs(tyear) / spatialgr
+  
+  # for grid cells with spatial gradient of zero the velocity will be Inf; so here I truncate the spatial gradient so as not to have zero values. The point at which to truncate (0.00005 in the example below) will depend on your data as you're trying to get a good balance between not having many Inf but also not changing a lot of values.
+  
+  zero <- Which(spatialgr < 0.00005, cells=TRUE)
+  spatialgr[zero] <- 0.00005
+  
+  ccvelt <- abs(tyear) / spatialgr
+  ccvelt
 }
 
 
+
+
+
+
+
+#----------
+if (!isGeneric("ccm")) {
+  setGeneric("ccm", function(p,tmin,tmax,tmean,stat,t1,t2,extreme,longlat,nyears,...)
+    standardGeneric("ccm"))
+}
+
 setMethod('ccm', signature(p='RasterStackBrickTS'),
-          function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,...) {
+          function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,longlat,nyears,...) {
             if (missing(p)) p <- NULL
             if (missing(tmin)) tmin <- NULL
             if (missing(tmax)) tmax <- NULL
             if (missing(tmean)) tmean <- NULL
+            if (missing(longlat)) {
+              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+              l1 <- c('p','tmin','tmax','tmean')[w[1]]
+              longlat <- is.projected(crs(get(l1)@raster))
+              if (is.na(longlat)) {
+                longlat <- .is.projected(get(l1)@raster)
+              }
+            }
+            if (missing(nyears)) nyears <- nyears(get(l1)@time)
             
             if (stat == 'sed') {
               .sed(p,tmin,tmax,tmean,t1=t1,t2=t2)
@@ -321,7 +458,26 @@ setMethod('ccm', signature(p='RasterStackBrickTS'),
               .analogusClimate(k1,k2)
               
             } else if (stat == 've') {
-              
+              nl <- length(which(c(is.null(p),is.null(tmin),is.null(tmax),is.null(tmean))))
+              if (nl > 2) {
+                stop('The velocity function can work with one or two climate variables. You may take the first two components from a PCA transformation when the variables are more than two...!')
+              }
+              if (nl == 1) {
+                w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+                l1 <- c('p','tmin','tmax','tmean')[w[1]]
+                p1 <- calc(get(l1)@raster[[t1]], mean)
+                f1 <- calc(get(l1)@raster[[t2]], mean)
+                .vel(p1,f1,nyears=nyears,longlat=longlat)
+              } else {
+                w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+                l1 <- c('p','tmin','tmax','tmean')[w[1]]
+                l2 <- c('p','tmin','tmax','tmean')[w[2]]
+                p1 <- calc(get(l1)@raster[[t1]], mean)
+                p2 <- calc(get(l1)@raster[[t2]], mean)
+                f1 <- calc(get(l2)@raster[[t1]], mean)
+                f2 <- calc(get(l2)@raster[[t2]], mean)
+                .velocM(p1,p2,f1,f2,...)
+              }
             } else stop('stat is unknown...!')
           }
 )
@@ -330,11 +486,19 @@ setMethod('ccm', signature(p='RasterStackBrickTS'),
 
 #----------------
 setMethod('ccm', signature(p='RasterStackBrick'),
-          function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,dates,...) {
+          function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,dates,longlat,nyears,...) {
             if (missing(p)) p <- NULL
             if (missing(tmin)) tmin <- NULL
             if (missing(tmax)) tmax <- NULL
             if (missing(tmean)) tmean <- NULL
+            
+            if (missing(longlat)) {
+              longlat <- is.projected(crs(p))
+              if (is.na(longlat)) {
+                longlat <- .is.projected(p)
+              }
+            }
+            
             
             if (stat == 'sed') {
               .sedR(p,tmin,tmax,tmean,t1=t1,t2=t2)
@@ -408,6 +572,30 @@ setMethod('ccm', signature(p='RasterStackBrick'),
               k2 <- kgc(apply.months(prt2,dates=dates[t2]),apply.months(tmin2,dates=dates[t2]),apply.months(tmax2,dates=dates[t2]),apply.months(tmean2,dates=dates[t2]))
               .analogusClimate(k1,k2)
             } else if (stat == 've') {
+              nl <- length(which(c(is.null(p),is.null(tmin),is.null(tmax),is.null(tmean))))
+              if (nl > 2) {
+                stop('The velocity function can work with one or two climate variables. You may take the first two components from a PCA transformation when the variables are more than two...!')
+              }
+              if (nl == 1) {
+                if (missing(nyears)) {
+                  if (!missing(dates)) nyears <- nyears(dates)
+                  else stop('nyears should be specified...!')
+                }
+                w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+                l1 <- c('p','tmin','tmax','tmean')[w[1]]
+                p1 <- calc(get(l1)[[t1]], mean)
+                f1 <- calc(get(l1)[[t2]], mean)
+                .vel(p1,f1,nyears=nyears,longlat=longlat)
+              } else {
+                w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+                l1 <- c('p','tmin','tmax','tmean')[w[1]]
+                l2 <- c('p','tmin','tmax','tmean')[w[2]]
+                p1 <- calc(get(l1)[[t1]], mean)
+                p2 <- calc(get(l1)[[t2]], mean)
+                f1 <- calc(get(l2)[[t1]], mean)
+                f2 <- calc(get(l2)[[t2]], mean)
+                .velocM(p1,p2,f1,f2,...)
+              }
               
             } else stop('stat is unknown...!')
             

@@ -1,11 +1,11 @@
 Package: ccm
 Type: Package
 Title: climate change metrics
-Version: 0.1-6
+Version: 0.1-7
 Author: Shirin Taheri, Babak Naimi
 Maintainer: Shirin Taheri <taheri.shi@gmail.com>
 Depends: methods, sp (>= 1.2-0), R (>= 3.0.0)
-Imports: rts, raster,terra, zoo
+Imports: rts, raster,terra, zoo, yaImpute
 Suggests: rmarkdown
 Description: spatio-temporal analysis of climate dynamics to explore and measure different dimensions of
       climate change in space and time.
