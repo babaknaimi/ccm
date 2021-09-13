@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  Sep. 2021
-# Version 1.8
+# Last update :  Oct. 2021
+# Version 1.9
 # Licence GPL v3
 #--------
 
@@ -241,7 +241,7 @@
 #-------
 
 .velocM <- function(p1,p2,f1,f2,log=TRUE,...) {
-  # based on the script provided in Hamnan et al. (2014)
+  # based on the script provided in Hamnan et al. (2015)
   w <- which(!is.na(p1[]))
   
   present1 <- as.data.frame(p1)[w,]
@@ -298,70 +298,70 @@
 }
 
 #---------
-.vel <- function(basr,futr,nyears,longlat=TRUE,...) {
-  # The function is based on the script that is kindly provided by Raquel Garcia following the paper Garcia et al. (2014)
-  nc = ncol(basr) 
-  nr = nrow(basr) 
-  resolution = xres(basr) 
-  basm = matrix(getValues(basr), nrow = nr, ncol = nc, byrow = TRUE)  
-  #-------
-  lats = yFromRow(basr,1:nrow(basr)) 
-  longDist = NULL 
-  for(i in 1:length(lats)) {
-    longDist[i] = (pointDistance(c(0,lats[i]),c(resolution,lats[i]),longlat=longlat)) / 1000
-  } 
-  #----
-  spatialg = matrix(NA, nrow=nr, ncol=nc) 
-  if (longlat) {
-    for(i in 2:(nr-1)) {
-      for(j in 2:(nc-1)) {
-        if(!is.na(basm[i,j])) {
-          xDist = longDist[i]
-          
-          NS = (basm[i-1,j] - basm[i+1,j]) / (2*111.3195*resolution)
-          EW = (basm[i,j-1] - basm[i,j+1]) / (2*xDist)
-          
-          spatialg[i,j] = sqrt(NS^2 + EW^2)
-        }
-      }
-    } 
-  } else {
-    for(i in 2:(nr-1)) {
-      for(j in 2:(nc-1)) {
-        if(!is.na(basm[i,j])) {
-          xDist = longDist[i]
-          
-          NS = (basm[i-1,j] - basm[i+1,j]) / (2*resolution)
-          EW = (basm[i,j-1] - basm[i,j+1]) / (2*xDist)
-          spatialg[i,j] = sqrt(NS^2 + EW^2)
-        }
-      }
-    } 
-  }
-  #-------
-  spatialgr <- raster(basr)
-  temporalgr <- futr - basr #overall temporal gradient between the two time periods
-  tyear <- temporalgr / nyears #temporal gradient per year; nyears is the number of years between the two time periods
-  
-  
-  spatialgr <- setValues(spatialgr, spatialg)
-  
-  
-  
-  ### computing climate change velocity
-  
-  ccvel <- abs(tyear) / spatialgr
-  
-  # for grid cells with spatial gradient of zero the velocity will be Inf; so here I truncate the spatial gradient so as not to have zero values. The point at which to truncate (0.00005 in the example below) will depend on your data as you're trying to get a good balance between not having many Inf but also not changing a lot of values.
-  
-  zero <- Which(spatialgr < 0.00005, cells=TRUE)
-  spatialgr[zero] <- 0.00005
-  
-  ccvelt <- abs(tyear) / spatialgr
-  ccvelt
-}
-
-
+# .vel <- function(basr,futr,nyears,longlat=TRUE,...) {
+#   # The function is based on the script that is kindly provided by Raquel Garcia following the paper Garcia et al. (2014)
+#   nc = ncol(basr) 
+#   nr = nrow(basr) 
+#   resolution = xres(basr) 
+#   basm = matrix(getValues(basr), nrow = nr, ncol = nc, byrow = TRUE)  
+#   #-------
+#   lats = yFromRow(basr,1:nrow(basr)) 
+#   longDist = NULL 
+#   for(i in 1:length(lats)) {
+#     longDist[i] = (pointDistance(c(0,lats[i]),c(resolution,lats[i]),longlat=longlat)) / 1000
+#   } 
+#   #----
+#   spatialg = matrix(NA, nrow=nr, ncol=nc) 
+#   if (longlat) {
+#     for(i in 2:(nr-1)) {
+#       for(j in 2:(nc-1)) {
+#         if(!is.na(basm[i,j])) {
+#           xDist = longDist[i]
+#           
+#           NS = (basm[i-1,j] - basm[i+1,j]) / (2*111.3195*resolution)
+#           EW = (basm[i,j-1] - basm[i,j+1]) / (2*xDist)
+#           
+#           spatialg[i,j] = sqrt(NS^2 + EW^2)
+#         }
+#       }
+#     } 
+#   } else {
+#     for(i in 2:(nr-1)) {
+#       for(j in 2:(nc-1)) {
+#         if(!is.na(basm[i,j])) {
+#           xDist = longDist[i]
+#           
+#           NS = (basm[i-1,j] - basm[i+1,j]) / (2*resolution)
+#           EW = (basm[i,j-1] - basm[i,j+1]) / (2*xDist)
+#           spatialg[i,j] = sqrt(NS^2 + EW^2)
+#         }
+#       }
+#     } 
+#   }
+#   #-------
+#   spatialgr <- raster(basr)
+#   temporalgr <- futr - basr #overall temporal gradient between the two time periods
+#   tyear <- temporalgr / nyears #temporal gradient per year; nyears is the number of years between the two time periods
+#   
+#   
+#   spatialgr <- setValues(spatialgr, spatialg)
+#   
+#   
+#   
+#   ### computing climate change velocity
+#   
+#   ccvel <- abs(tyear) / spatialgr
+#   
+#   # for grid cells with spatial gradient of zero the velocity will be Inf; so here I truncate the spatial gradient so as not to have zero values. The point at which to truncate (0.00005 in the example below) will depend on your data as you're trying to get a good balance between not having many Inf but also not changing a lot of values.
+#   
+#   zero <- Which(spatialgr < 0.00005, cells=TRUE)
+#   spatialgr[zero] <- 0.00005
+#   
+#   ccvelt <- abs(tyear) / spatialgr
+#   ccvelt
+# }
+# 
+# 
 
 
 
@@ -466,24 +466,35 @@ setMethod('ccm', signature(p='RasterStackBrickTS'),
             } else if (stat == 've') {
               nl <- length(which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean))))
               if (nl > 2) {
-                stop('The velocity function can work with one or two climate variables. You may take the first two components from a PCA transformation when the variables are more than two...!')
+                stop('This method of velocity is implemented based on the approach in Hamnan et al. (2014) that works based on two climate variable; For multiple variables, you may either use a PCA transformation and take the first two components, or use dVe (dVelocity) stat!')
               }
-              if (nl == 1) {
-                w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-                l1 <- c('p','tmin','tmax','tmean')[w[1]]
-                p1 <- calc(eval(get(l1))[[t1]]@raster, mean)
-                f1 <- calc(eval(get(l1))[[t2]]@raster, mean)
-                .vel(p1,f1,nyears=ny,longlat=longlat)
-              } else {
-                w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-                l1 <- c('p','tmin','tmax','tmean')[w[1]]
-                l2 <- c('p','tmin','tmax','tmean')[w[2]]
-                p1 <- calc(eval(get(l1))[[t1]]@raster, mean)
-                f1 <- calc(eval(get(l1))[[t2]]@raster, mean)
-                p2 <- calc(eval(get(l2))[[t1]]@raster, mean)
-                f2 <- calc(eval(get(l2))[[t2]]@raster, mean)
-                .velocM(p1,p2,f1,f2,...)
-              }
+              #----
+              
+              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+              l1 <- c('p','tmin','tmax','tmean')[w[1]]
+              l2 <- c('p','tmin','tmax','tmean')[w[2]]
+              p1 <- calc(eval(get(l1))[[t1]]@raster, mean)
+              f1 <- calc(eval(get(l1))[[t2]]@raster, mean)
+              p2 <- calc(eval(get(l2))[[t1]]@raster, mean)
+              f2 <- calc(eval(get(l2))[[t2]]@raster, mean)
+              .velocM(p1,p2,f1,f2,...)
+              
+            } else if (stat %in% c('dve','dVe','dv','dVE','dVelocity')) {
+              
+              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+              
+              if (length(w) == 1) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),t1=t1,t2=t2,ny=ny)
+              else if (length(w) == 2) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),t1=t1,t2=t2,ny=ny)
+              else if (length(w) == 3) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),get(c('p','tmin','tmax','tmean')[w[3]]),t1=t1,t2=t2,ny=ny)
+              
+            } else if (stat %in% c('gve','gVe','gv','gVE','gVelocity')) {
+              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+              
+              if (length(w) != 1) stop('The gVelocity implemented in this package works based on a single climate variable, so only provide one of the climate variables you wish to get gradiant-based velocity for!')
+              
+              gVelocity(get(c('p','tmin','tmax','tmean')[w[1]]))
+              
+              
             } else stop('stat is unknown...!')
           }
 )
@@ -580,28 +591,38 @@ setMethod('ccm', signature(p='RasterStackBrick'),
             } else if (stat == 've') {
               nl <- length(which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean))))
               if (nl > 2) {
-                stop('The velocity function can work with one or two climate variables. You may take the first two components from a PCA transformation when the variables are more than two...!')
+                stop('This method of velocity is implemented based on the approach in Hamnan et al. (2014) that works based on two climate variable; For multiple variables, you may either use a PCA transformation and take the first two components, or use dVe (dVelocity) stat!')
               }
-              if (nl == 1) {
-                if (missing(ny)) {
-                  if (!missing(dates)) ny <- nyears(dates)
-                  else stop('ny (number of years) should be specified...!')
-                }
-                w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-                l1 <- c('p','tmin','tmax','tmean')[w[1]]
-                p1 <- calc(get(l1)[[t1]], mean)
-                f1 <- calc(get(l1)[[t2]], mean)
-                .vel(p1,f1,nyears=ny,longlat=longlat)
-              } else {
-                w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-                l1 <- c('p','tmin','tmax','tmean')[w[1]]
-                l2 <- c('p','tmin','tmax','tmean')[w[2]]
-                p1 <- calc(get(l1)[[t1]], mean)
-                f1 <- calc(get(l1)[[t2]], mean)
-                p2 <- calc(get(l2)[[t1]], mean)
-                f2 <- calc(get(l2)[[t2]], mean)
-                .velocM(p1,p2,f1,f2,...)
+              
+              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+              l1 <- c('p','tmin','tmax','tmean')[w[1]]
+              l2 <- c('p','tmin','tmax','tmean')[w[2]]
+              p1 <- calc(get(l1)[[t1]], mean)
+              f1 <- calc(get(l1)[[t2]], mean)
+              p2 <- calc(get(l2)[[t1]], mean)
+              f2 <- calc(get(l2)[[t2]], mean)
+              .velocM(p1,p2,f1,f2,...)
+              
+            } else if (stat %in% c('dve','dVe','dv','dVE','dVelocity')) {
+              
+              if (missing(ny)) {
+                if (!missing(dates)) ny <- nyears(dates)
+                else stop('ny (number of years) should be specified...!')
               }
+              
+              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+              
+              if (length(w) == 1) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),t1=t1,t2=t2,ny=ny)
+              else if (length(w) == 2) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),t1=t1,t2=t2,ny=ny)
+              else if (length(w) == 3) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),get(c('p','tmin','tmax','tmean')[w[3]]),t1=t1,t2=t2,ny=ny)
+              
+            } else if (stat %in% c('gve','gVe','gv','gVE','gVelocity')) {
+              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
+              
+              if (length(w) != 1) stop('The gVelocity implemented in this package works based on a single climate variable, so only provide one of the climate variables you wish to get gradiant-based velocity for!')
+              
+              gVelocity(get(c('p','tmin','tmax','tmean')[w[1]]))
+              
               
             } else stop('stat is unknown...!')
             
