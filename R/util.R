@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri, taheri.shi@gmail.com; Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  Oct. 2021
-# Version 1.4
+# Last update :  Nov. 2021
+# Version 1.5
 # Licence GPL v3
 #--------
 
@@ -26,7 +26,7 @@
 #=-===============
 .is.projected <- function(x) {
   e <- as.vector(extent(x))
-  !all(e > -180 & e < 180)
+  !all(e >= -180 & e <= 180)
 }
 #-----
 
@@ -68,6 +68,8 @@
   if (inherits(x,'Raster')) .raster <- TRUE
   else .raster <- FALSE
   
+  
+  
   for (i in 1:length(lst)) {
     if (.multi) {
       if (.raster) {
@@ -88,11 +90,12 @@
     }
   }
   #----
+  
   .scaleParam <- vector(mode='list',length=length(xt1))
   names(.scaleParam) <- sapply(xt1,names)
   
   
-  for (i in 1:length(xt1)) {
+  for (i in 1:length(xt1)) {                                                                                                                                                                                                                                                                                      
     .scaleParam[[i]] <- minmax(xt1[[i]])[,1]
     xt1[[i]] <- (xt1[[i]] - .scaleParam[[i]][1]) / (.scaleParam[[i]][2] - .scaleParam[[i]][1] )
     xt2[[i]] <- (xt2[[i]] - .scaleParam[[i]][1]) / (.scaleParam[[i]][2] - .scaleParam[[i]][1])
@@ -112,4 +115,19 @@
   list(t1=x1,t2=x2)
 }
 
-
+#----------
+.getLongLat <- function(x,crs) {
+  # x is data.frame
+  if (ncol(x) > 2) {
+    if (all(c('x','y') %in% colnames(x))) x <- x[,c('x','y')]
+    else {
+      x <- x[,1:2]
+      colnames(x) <- c('x','y')
+      warning('".getLongLat function:" the first two columns in the input data.frame is assumed as the coordinate columns!')
+    }
+  } else if (ncol(x) < 2) stop('".getLongLat function:" input x should be a data.frame with 2 columns, i.e., x and y coordinates!')
+  
+  
+  geom(project(vect(x,geom=colnames(x),crs=crs),"epsg:4326"))[,c('x','y')]
+}
+#-----

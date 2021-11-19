@@ -13,5 +13,5 @@ importFrom("yaImpute", ann)
 importFrom("zoo", index)
 importFrom("raster",calc,raster,nlayers,addLayer,pointDistance,xyFromCell,projection,extent,stack,yFromRow,crs,res,ncell,
            as.data.frame,nrow,ncol,adjacent,getValues,rowFromCell,colFromCell,xres,setValues,Which,cellFromXY,yFromCell,values)
-importFrom("terra",app,rast,nlyr,global,minmax)
+importFrom("terra",app,rast,nlyr,global,minmax,geom,project,vect)
 exportPattern("^[[:alpha:]]+")

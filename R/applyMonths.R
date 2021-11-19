@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (Naimi.b@gmail.com)
 # Date :  March 2021
-# Last update :  March 2021
-# Version 1.0
+# Last update :  Nov. 2021
+# Version 1.1
 # Licence GPL v3
 #--------
 
@@ -81,3 +81,23 @@ setMethod('apply.months', signature(x='SpatRaster'),
             xm
           }
 )
+#=====
+
+setMethod('apply.months', signature(x='SpatRasterTS'),
+          function(x,FUN,...) {
+            if (missing(FUN)) FUN <- mean
+            
+            mbase <- c('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+            
+            .m <- months(index(x),TRUE)
+            
+            xm <- rast(x@raster)
+            for (j in mbase) {
+              w <- which(.m == j)
+              xm <- c(xm,app(x@raster[[w]],FUN, na.rm=TRUE,...))
+            }
+            names(xm) <- mbase
+            xm
+          }
+)
+#---------

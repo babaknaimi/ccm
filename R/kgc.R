@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (Naimi.b@gmail.com)
 # Date :  March 2021
-# Last update :  March 2021
-# Version 1.0
+# Last update :  Oct 2021
+# Version 1.1
 # Licence GPL v3
 #--------
 
@@ -10,24 +10,112 @@
 
 
 
-# whether 70% of precipitation fall in summer:
+# # whether 70% of precipitation fall in summer:
+# .p70 <- function(pm) {
+#   if (inherits(pm,'Raster')) {
+#     if (nlayers(pm) != 12) stop('monthly precipitation does not have 12 layers!')
+#     calc(pm,function(x) {
+#       .s <- sum(x,na.rm = TRUE) # total precipitation
+#       (sum(x[4:9],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+#     })
+#   } else if (inherits(pm,'SpatRaster')) {
+#     if (nlyr(pm) != 12) stop('monthly precipitation oes not have 12 layers!')
+#     app(pm,function(x) {
+#       .s <- sum(x,na.rm = TRUE) # total precipitation
+#       (sum(x[4:9],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+#     })
+#   } else stop('The input object is not a Raster!')
+# }
+#---------
+# if 70% of precipitation fall in summer, return 1;
+# if 70% of precipitation fall in winter, return 2,
+# otherwise, returns 3:
 .p70 <- function(pm) {
   if (inherits(pm,'Raster')) {
-    if (nlayers(pm) != 12) stop('monthly precipitation does not have 12 layers!')
-    calc(pm,function(x) {
-      .s <- sum(x,na.rm = TRUE) # total precipitation
-      (sum(x[4:9],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
-    })
+    if (nlayers(pm) != 12) stop('monthly precipitation should have 12 layers!')
+    r <- raster(pm)
   } else if (inherits(pm,'SpatRaster')) {
-    if (nlyr(pm) != 12) stop('monthly precipitation oes not have 12 layers!')
-    app(pm,function(x) {
-      .s <- sum(x,na.rm = TRUE) # total precipitation
-      (sum(x[4:9],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
-    })
+    if (nlyr(pm) != 12) stop('monthly precipitation should have 12 layers!')
+    r <- rast(pm[[1]])
   } else stop('The input object is not a Raster!')
+  #------
+  
+  pdf <- as.data.frame(pm,xy=TRUE,na.rm=TRUE)
+  xy <- pdf[,1:2]
+  pdf <- pdf[,-c(1:2)]
+  
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  
+  if (!all(xy$y >= 0)) {
+    if (!all(xy$y < 0)) {
+      w <- which(xy$y >= 0)
+      v <- rep(NA,nrow(pdf))
+      
+      
+      v[w] <- apply(pdf[w,],1,FUN = function(x,...) {
+        .s <- sum(x,na.rm = TRUE) # total precipitation
+        
+        if (.s == 0) return(3)
+        
+        s1 <- (sum(x[4:9],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+        if (s1) return(1)
+        else {
+          s1 <- (sum(x[-c(4:9)],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+          if (s1) return(2)
+          else 3
+        }
+      })
+      
+      v[-w] <- apply(pdf[-w,],1,FUN = function(x) {
+        .s <- sum(x,na.rm = TRUE) # total precipitation
+        
+        if (.s == 0) return(3)
+        
+        s1 <- (sum(x[-c(4:9)],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+        if (s1) return(1)
+        else {
+          s1 <- (sum(x[c(4:9)],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+          if (s1) return(2)
+          else 3
+        }
+      })
+    } else {
+      v <- apply(pdf,1,FUN = function(x) {
+        .s <- sum(x,na.rm = TRUE) # total precipitation
+        
+        if (.s == 0) return(3)
+        
+        s1 <- (sum(x[-c(4:9)],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+        if (s1) return(1)
+        else {
+          s1 <- (sum(x[c(4:9)],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+          if (s1) return(2)
+          else 3
+        }
+      })
+    }
+  } else {
+    v <- apply(pdf,1,FUN = function(x) {
+      .s <- sum(x,na.rm = TRUE) # total precipitation
+      
+      if (.s == 0) return(3)
+      
+      s1 <- (sum(x[4:9],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+      if (s1) return(1)
+      else {
+        s1 <- (sum(x[-c(4:9)],na.rm = TRUE) / .s) >= 0.7 # whether 70% of precipitation is in summer
+        if (s1) return(2)
+        else 3
+      }
+    })
+  }
+  #----
+  
+  r[cellFromXY(r,as.matrix(xy))] <- v
+  r
 }
 #---------
-
+####################################
 
 # tmean: monthly mean temperature
 .MAT <- function(tmean) {
@@ -64,9 +152,18 @@
     r <- rast(p7)
   } else stop('The input object is not a Raster!')
   
-  r[] <- ifelse(p7[] == 1,2*mat[]+28,2*mat[]+14)
+  w <- which(p7[] == 1)
+  if (length(w) > 0) r[w] <- (2*mat[w]) + 28
+  
+  w <- which(p7[] == 2)
+  if (length(w) > 0) r[w] <- (2*mat[w])
+  
+  w <- which(p7[] == 3)
+  if (length(w) > 0) r[w] <- (2*mat[w]) + 14
+  
   r
 }
+
 #---------
 
 #precipitation in driest month
@@ -96,86 +193,212 @@
 .Psdry <- function(pm) {
   if (inherits(pm,'Raster')) {
     if (nlayers(pm) != 12) stop('monthly precipitation should have 12 layers!')
-    calc(pm,function(x,...) {
-      x <- x[4:9]
-      x <- x[!is.na(x)]
-      if (length(x) > 0) x[which.min(x)]
-      else NA
-    })
+    r <- raster(pm)
   } else if (inherits(pm,'SpatRaster')) {
     if (nlyr(pm) != 12) stop('monthly precipitation should have 12 layers!')
-    app(pm,function(x,...) {
-      x <- x[4:9]
+    r <- rast(pm[[1]])
+  } else stop('The input object is not a Raster!')
+  
+  #--------------
+  pdf <- as.data.frame(pm,xy=TRUE,na.rm=TRUE)
+  xy <- pdf[,1:2]
+  pdf <- pdf[,-c(1:2)]
+  
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  
+  if (!all(xy$y >= 0)) {
+    if (!all(xy$y < 0)) {
+      w <- which(xy$y >= 0)
+      v <- rep(NA,nrow(pdf))
+      v[w] <- apply(pdf[w,4:9],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.min(x)]
+        else NA
+      })
+      
+      v[-w] <- apply(pdf[-w,-c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.min(x)]
+        else NA
+      })
+    } else {
+      v <- apply(pdf[,-c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.min(x)]
+        else NA
+      })
+    }
+  } else {
+    v <- apply(pdf[,c(4:9)],1,FUN = function(x) {
       x <- x[!is.na(x)]
       if (length(x) > 0) x[which.min(x)]
       else NA
     })
-  } else stop('The input object is not a Raster!')
+  }
+  #----
+  
+  r[cellFromXY(r,as.matrix(xy))] <- v
+  r
+  
 }
 ####
+
 # precipitation in driest month in winter
 .Pwdry <- function(pm) {
   if (inherits(pm,'Raster')) {
     if (nlayers(pm) != 12) stop('monthly precipitation should have 12 layers!')
-    calc(pm,function(x,...) {
-      x <- x[-(4:9)]
-      x <- x[!is.na(x)]
-      if (length(x) > 0) x[which.min(x)]
-      else NA
-    })
+    r <- raster(pm)
   } else if (inherits(pm,'SpatRaster')) {
     if (nlyr(pm) != 12) stop('monthly precipitation should have 12 layers!')
-    app(pm,function(x,...) {
-      x <- x[-(4:9)]
+    r <- rast(pm[[1]])
+  } else stop('The input object is not a Raster!')
+  #-----------------
+  
+  pdf <- as.data.frame(pm,xy=TRUE,na.rm=TRUE)
+  xy <- pdf[,1:2]
+  pdf <- pdf[,-c(1:2)]
+  
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  
+  if (!all(xy$y >= 0)) {
+    if (!all(xy$y < 0)) {
+      w <- which(xy$y >= 0)
+      v <- rep(NA,nrow(pdf))
+      v[w] <- apply(pdf[w,-c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.min(x)]
+        else NA
+      })
+      
+      v[-w] <- apply(pdf[-w,c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.min(x)]
+        else NA
+      })
+    } else {
+      v <- apply(pdf[,c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.min(x)]
+        else NA
+      })
+    }
+  } else {
+    v <- apply(pdf[,-c(4:9)],1,FUN = function(x) {
       x <- x[!is.na(x)]
       if (length(x) > 0) x[which.min(x)]
       else NA
     })
-  } else stop('The input object is not a Raster!')
+  }
+  #----
+  
+  r[cellFromXY(r,as.matrix(xy))] <- v
+  r
 }
 #------
 # precipitation in wettest month in summer
 .Pswet <- function(pm) {
   if (inherits(pm,'Raster')) {
     if (nlayers(pm) != 12) stop('monthly precipitation should have 12 layers!')
-    calc(pm,function(x,...) {
-      x <- x[4:9]
-      x <- x[!is.na(x)]
-      if (length(x) > 0) x[which.max(x)]
-      else NA
-    })
+    r <- raster(pm)
   } else if (inherits(pm,'SpatRaster')) {
     if (nlyr(pm) != 12) stop('monthly precipitation should have 12 layers!')
-    app(pm,function(x,...) {
-      x <- x[4:9]
+    r <- rast(pm[[1]])
+  } else stop('The input object is not a Raster!')
+  #-----------------
+  
+  pdf <- as.data.frame(pm,xy=TRUE,na.rm=TRUE)
+  xy <- pdf[,1:2]
+  pdf <- pdf[,-c(1:2)]
+  
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  
+  if (!all(xy$y >= 0)) {
+    if (!all(xy$y < 0)) {
+      w <- which(xy$y >= 0)
+      v <- rep(NA,nrow(pdf))
+      v[w] <- apply(pdf[w,4:9],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.max(x)]
+        else NA
+      })
+      
+      v[-w] <- apply(pdf[-w,-c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.max(x)]
+        else NA
+      })
+    } else {
+      v <- apply(pdf[,-c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.max(x)]
+        else NA
+      })
+    }
+  } else {
+    v <- apply(pdf[,c(4:9)],1,FUN = function(x) {
       x <- x[!is.na(x)]
       if (length(x) > 0) x[which.max(x)]
       else NA
     })
-  } else stop('The input object is not a Raster!')
+  }
+  #----
+  
+  r[cellFromXY(r,as.matrix(xy))] <- v
+  r
+  
 }
 ####
 # precipitation in wettest month in winter
 .Pwwet <- function(pm) {
   if (inherits(pm,'Raster')) {
     if (nlayers(pm) != 12) stop('monthly precipitation should have 12 layers!')
-    calc(pm,function(x,...) {
-      x <- x[-(4:9)]
-      x <- x[!is.na(x)]
-      if (length(x) > 0) x[which.max(x)]
-      else NA
-    })
+    r <- raster(pm)
   } else if (inherits(pm,'SpatRaster')) {
     if (nlyr(pm) != 12) stop('monthly precipitation should have 12 layers!')
-    app(pm,function(x,...) {
-      x <- x[-(4:9)]
+    r <- rast(pm[[1]])
+  } else stop('The input object is not a Raster!')
+  #-----------------
+  
+  pdf <- as.data.frame(pm,xy=TRUE,na.rm=TRUE)
+  xy <- pdf[,1:2]
+  pdf <- pdf[,-c(1:2)]
+  
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  
+  if (!all(xy$y >= 0)) {
+    if (!all(xy$y < 0)) {
+      w <- which(xy$y >= 0)
+      v <- rep(NA,nrow(pdf))
+      v[w] <- apply(pdf[w,-c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.max(x)]
+        else NA
+      })
+      
+      v[-w] <- apply(pdf[-w,c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.max(x)]
+        else NA
+      })
+    } else {
+      v <- apply(pdf[,c(4:9)],1,FUN = function(x) {
+        x <- x[!is.na(x)]
+        if (length(x) > 0) x[which.max(x)]
+        else NA
+      })
+    }
+  } else {
+    v <- apply(pdf[,-c(4:9)],1,FUN = function(x) {
       x <- x[!is.na(x)]
       if (length(x) > 0) x[which.max(x)]
       else NA
     })
-  } else stop('The input object is not a Raster!')
+  }
+  #----
+  
+  r[cellFromXY(r,as.matrix(xy))] <- v
+  r
 }
-####
 #temperature in coldest month
 .Tcold <- function(tmin) {
   if (inherits(tmin,'Raster')) {
@@ -241,6 +464,160 @@
                     ET=c(29,5),EF=c(30,5))
 #------------
 #----------------
+# .kgcR <- function(pm,tmean,tmin,tmax) {
+#   k <- data.frame(t(as.data.frame(.KGC_classes)),names(.KGC_classes))
+#   names(k) <- c('code','class','names')
+#   #---------
+#   .mat <- .MAT(tmean)
+#   .pth <- .Pth(pm, .mat)
+#   .map <- .MAP(pm)
+#   .tc <- .Tcold(tmin)
+#   .th <- .Thot(tmax)
+#   .pdry <- .Pdry(pm)
+#   .psdry <- .Psdry(pm)
+#   .pww <- .Pwwet(pm)
+#   .tm10 <- .Tm10(tmean)
+#   .pwd <- .Pwdry(pm)
+#   .psw <- .Pswet(pm)
+#   #------
+#   # empty raster
+#   if (inherits(pm,'Raster')) r <- raster(.mat)
+#   else r <- rast(.mat)
+#   
+#   #-----
+#   .c <- which(!is.na(.map[])) # non-NA cells
+#   #------------
+#   
+#   #### BWh, BWk (4:7):
+#   w <- .map[.c] < (10 * .pth[.c])
+#   w2 <- .map[.c] < (5 * .pth[.c])
+#   w3 <- .mat[.c] >= 18
+#   
+#   .w <- .c[w & w2 & w3]
+#   if (length(.w) > 0) r[.w] <- 4
+#   .w <- .c[w & w2 & !w3]
+#   if (length(.w) > 0) r[.w] <- 5
+#   
+#   .w <- .c[w & !w2 & w3]
+#   if (length(.w) > 0) r[.w] <- 6
+#   .w <- .c[w & !w2 & !w3]
+#   if (length(.w) > 0) r[.w] <- 7
+#   
+#   #=======================
+#   #### Af, Am, Aw (1,2,3):
+#   w <- (!r[.c] %in% c(4:7)) & (.tc[.c] >= 18) # Not(B) & Tcold >= 18
+#   w2 <- .pdry[.c] >= 60
+#   .w <- .c[w & w2]
+#   if (length(.w) > 0) r[.w] <- 1
+#   
+#   w2 <- .pdry[.c] >= (100 - (.map[.c] / 25))
+#   w3 <- r[.c] != 1
+#   .w <- .c[w & w2 & w3]
+#   if (length(.w) > 0) r[.w] <- 2
+#   
+#   .w <- .c[w & !w2 & w3]
+#   if (length(.w) > 0) r[.w] <- 3
+#   #========================
+#   #### Csa.... (8:16):
+#   w <- (!r[.c] %in% c(4:7)) & (.th[.c] > 10) & (.tc[.c] > 0) & (.tc[.c] < 18) # Not(B) & Thot>10 & 0<Tcold <10
+#   #Csa,Csb,Csc:
+#   w1 <- (.psdry[.c] < 40) & (.psdry[.c] < (.pww[.c]/3))
+#   w2 <- .th[.c] >= 22
+#   .w <- .c[w & w1 & w2]
+#   if (length(.w) > 0) r[.w] <- 8 # CSa
+#   
+#   w3 <- .tm10[.c] >= 4
+#   .w <- .c[w & w1 & !w2 & w3]
+#   if (length(.w) > 0) r[.w] <- 9 # CSb
+#   w4 <- .tm10[.c] >= 1
+#   .w <- .c[w & w1 & !w2 & !w3 & w4]
+#   if (length(.w) > 0) r[.w] <- 10 # CSc
+#   #--
+#   #Cwa,Cwb,C.w:
+#   w.1 <- (.pwd[.c] < (.psw[.c]/10))
+#   .w <- .c[w & w.1 & w2]
+#   if (length(.w) > 0) r[.w] <- 11 # Cwa
+#   
+#   .w <- .c[w & w.1 & !w2 & w3]
+#   if (length(.w) > 0) r[.w] <- 12 # Cwb
+#   w4 <- .tm10[.c] >= 1
+#   .w <- .c[w & w.1 & !w2 & !w3 & w4]
+#   if (length(.w) > 0) r[.w] <- 13 # C.w
+#   #--
+#   #Cfa,Cfb,Cfc:
+#   w1 <- !(w1 | w.1)
+#   .w <- .c[w & w1 & w2]
+#   if (length(.w) > 0) r[.w] <- 14 # Cfa
+#   
+#   .w <- .c[w & w1 & !w2 & w3]
+#   if (length(.w) > 0) r[.w] <- 15 # Cfb
+#   w4 <- .tm10[.c] >= 1
+#   .w <- .c[w & w1 & !w2 & !w3 & w4]
+#   if (length(.w) > 0) r[.w] <- 16 # Cfc
+#   #=============
+#   #### D (17:28):
+#   w <- (!r[.c] %in% c(4:7)) & (.th[.c] > 10) & (.tc[.c] <= 0) # Not(B) & Thot>10 & Tcold <=0
+#   #Dsa,Dsb,Dsc,Dsd:
+#   w1 <- (.psdry[.c] < 40) & (.psdry[.c] < (.pww[.c]/3))
+#   wa <- .th[.c] >= 22
+#   .w <- .c[w & w1 & wa]
+#   if (length(.w) > 0) r[.w] <- 17 # Dsa
+#   
+#   wb <- !wa & .tm10[.c] >= 4 # not(a) & Tmon10 >=4
+#   .w <- .c[w & w1 & wb]
+#   if (length(.w) > 0) r[.w] <- 18 # Dsb
+#   
+#   wd <- !(wa | wb) & (.tc[.c] < -18)
+#   .w <- .c[w & w1 & wd]
+#   if (length(.w) > 0) r[.w] <- 20 # Dsd
+#   
+#   wc <- !(wa | wb | wd)
+#   .w <- .c[w & w1 & wc]
+#   if (length(.w) > 0) r[.w] <- 19 # Dsc
+#   
+#   #--
+#   #Dwa,Dwb,Dwc,Dwd:
+#   w.1 <- (.pwd[.c] < (.psw[.c]/10))
+#   .w <- .c[w & w.1 & wa]
+#   if (length(.w) > 0) r[.w] <- 21 # Dwa
+#   
+#   .w <- .c[w & w.1 & wb]
+#   if (length(.w) > 0) r[.w] <- 22 # Dsb
+#   
+#   .w <- .c[w & w.1 & wd]
+#   if (length(.w) > 0) r[.w] <- 24 # Dsd
+#   
+#   .w <- .c[w & w.1 & wc]
+#   if (length(.w) > 0) r[.w] <- 23 # Dsc
+#   
+#   #--
+#   #Dfa,Dfb,Dfc,Dfd:
+#   w1 <- !(w1 | w.1)
+#   .w <- .c[w & w1 & wa]
+#   if (length(.w) > 0) r[.w] <- 25 # Dfa
+#   
+#   .w <- .c[w & w1 & wb]
+#   if (length(.w) > 0) r[.w] <- 26 # Dfb
+#   
+#   .w <- .c[w & w1 & wd]
+#   if (length(.w) > 0) r[.w] <- 28 # Dfd
+#   
+#   .w <- .c[w & w1 & wc]
+#   if (length(.w) > 0) r[.w] <- 27 # Dfc
+#   ################
+#   # ET, EF (29:30):
+#   w <- (!r[.c] %in% c(4:7)) & (.th[.c] <= 18) # Not(B) & Thot <= 10
+#   wT <- .th[.c] > 0
+#   .w <- .c[w & wT]
+#   if (length(.w) > 0) r[.w] <- 29 #ET
+#   
+#   wF <- .th[.c] <= 0
+#   .w <- .c[w & wF]
+#   if (length(.w) > 0) r[.w] <- 30 #EF
+#   #========================
+#   r
+# }
+
 .kgcR <- function(pm,tmean,tmin,tmax) {
   k <- data.frame(t(as.data.frame(.KGC_classes)),names(.KGC_classes))
   names(k) <- c('code','class','names')
@@ -265,38 +642,76 @@
   .c <- which(!is.na(.map[])) # non-NA cells
   #------------
   
-  #### BWh, BWk (4:7):
-  w <- .map[.c] < (10 * .pth[.c])
-  w2 <- .map[.c] < (5 * .pth[.c])
-  w3 <- .mat[.c] >= 18
-  
-  .w <- .c[w & w2 & w3]
-  if (length(.w) > 0) r[.w] <- 4
-  .w <- .c[w & w2 & !w3]
-  if (length(.w) > 0) r[.w] <- 5
-  
-  .w <- .c[w & !w2 & w3]
-  if (length(.w) > 0) r[.w] <- 6
-  .w <- .c[w & !w2 & !w3]
-  if (length(.w) > 0) r[.w] <- 7
-  
   #=======================
   #### Af, Am, Aw (1,2,3):
-  w <- (!r[.c] %in% c(4:7)) & (.tc[.c] >= 18) # Not(B) & Tcold >= 18
+  w1 <- .tc[.c] >= 18 # Tcold >= 18
   w2 <- .pdry[.c] >= 60
-  .w <- .c[w & w2]
-  if (length(.w) > 0) r[.w] <- 1
+  .wn <- .c[w1 & w2]
+  if (length(.wn) > 0) r[.wn] <- 1 # Af
   
-  w2 <- .pdry[.c] >= (100 - (.map[.c] / 25))
-  w3 <- r[.c] != 1
-  .w <- .c[w & w2 & w3]
-  if (length(.w) > 0) r[.w] <- 2
+  w3 <- .pdry[.c] >= (100 - (.map[.c] / 25))
   
-  .w <- .c[w & !w2 & w3]
-  if (length(.w) > 0) r[.w] <- 3
+  .wn <- .c[w1 & !c(w1 & w2) & w3]
+  if (length(.wn) > 0) r[.wn] <- 2 # Am
+  
+  w3 <- .pdry[.c] < (100 - (.map[.c] / 25))
+  .wn <- .c[w1 & !c(w1 & w2) & w3]
+  if (length(.wn) > 0) r[.wn] <- 3 # Aw
   #========================
+  
+  w <- is.na(r[.c])
+  #### BWh, BWk (4:7):
+  w1 <- .map[.c] < (10 * .pth[.c])
+  w2 <- .map[.c] < (5 * .pth[.c])
+  w3 <- .map[.c] >= (5 * .pth[.c])
+  w4 <- .mat[.c] >= 18
+  w5 <- .mat[.c] < 18
+  
+  .wn <- .c[w & w1 & w2 & w4]
+  if (length(.wn) > 0) r[.wn] <- 4 #BW h
+  .wn <- .c[w & w1 & w2 & w5]
+  if (length(.wn) > 0) r[.wn] <- 5 #BW k
+  
+  .wn <- .c[w & w1 & w3 & w4]
+  if (length(.wn) > 0) r[.wn] <- 6
+  .wn <- .c[w & w1 & w3 & w5]
+  if (length(.wn) > 0) r[.wn] <- 7
+  
   #### Csa.... (8:16):
-  w <- (!r[.c] %in% c(4:7)) & (.th[.c] > 10) & (.tc[.c] > 0) & (.tc[.c] < 18) # Not(B) & Thot>10 & 0<Tcold <10
+  # w <- c(!r[.c] %in% c(1:7))
+  # w1 <- (.th[.c] > 10) & (.tc[.c] > 0) & (.tc[.c] < 18) # C
+  # w2 <- (.psdry[.c] < 40) & (.psdry[.c] < (.pww[.c] / 3)) #..s
+  # w3 <- (.pwdry[.c] < (.psw[.c] / 10)) # ..w
+  # 
+  # w4 <- .th[.c] >= 22 # a
+  # .wn <- .c[w & w1 & w2 & w4]
+  # if (length(.wn) > 0) r[.wn] <- 8 # CSa
+  # 
+  # w5 <- .tm10[.c] >= 4 # b
+  # 
+  # .wn <- .c[w & w1 & w2 & !w4 & w5]
+  # if (length(.wn) > 0) r[.wn] <- 9 # CSb
+  # 
+  # w6 <- (.tm10[.c] >= 1) & (.tm10[.c] < 4) #... c                                                                                                         c
+  # 
+  # .wn <- .c[w & w1 & w2 & !w4 & !w5 & w6]
+  # 
+  # if (length(.wn) > 0) r[.wn] <- 10 # CSc
+  # #----
+  # 
+  # .wn <- .c[w & w1 & w3 & w4]
+  # if (length(.wn) > 0) r[.wn] <- 11 # CWa
+  # 
+  # .wn <- .c[w & w1 & w3 & !w4 & w5]
+  # if (length(.wn) > 0) r[.wn] <- 12 # CWb
+  # 
+  # .wn <- .c[w & w1 & w3 & !w4 & !w5 & w6]
+  # if (length(.wn) > 0) r[.wn] <- 13 # CWc
+  # w23 <- !c((w1 & w2) | (w1 & w3)) # ..f
+  
+  #.wn <- .c[w &  !w4 & !w5 & w6]
+  
+  w <- (!r[.c] %in% c(1:7)) & (.th[.c] > 10) & (.tc[.c] > 0) & (.tc[.c] < 18) # Not(B) & Thot>10 & 0<Tcold <10
   #Csa,Csb,Csc:
   w1 <- (.psdry[.c] < 40) & (.psdry[.c] < (.pww[.c]/3))
   w2 <- .th[.c] >= 22
@@ -333,7 +748,8 @@
   if (length(.w) > 0) r[.w] <- 16 # Cfc
   #=============
   #### D (17:28):
-  w <- (!r[.c] %in% c(4:7)) & (.th[.c] > 10) & (.tc[.c] <= 0) # Not(B) & Thot>10 & Tcold <=0
+  
+  w <- (!r[.c] %in% c(1:16)) & (.th[.c] > 10) & (.tc[.c] <= 0) # Not(B) & Thot>10 & Tcold <=0
   #Dsa,Dsb,Dsc,Dsd:
   w1 <- (.psdry[.c] < 40) & (.psdry[.c] < (.pww[.c]/3))
   wa <- .th[.c] >= 22
@@ -383,7 +799,7 @@
   if (length(.w) > 0) r[.w] <- 27 # Dfc
   ################
   # ET, EF (29:30):
-  w <- (!r[.c] %in% c(4:7)) & (.th[.c] <= 18) # Not(B) & Thot <= 10
+  w <- (!r[.c] %in% c(1:27)) & (.th[.c] <= 18) # Not(B) & Thot <= 10
   wT <- .th[.c] > 0
   .w <- .c[w & wT]
   if (length(.w) > 0) r[.w] <- 29 #ET
@@ -394,6 +810,7 @@
   #========================
   r
 }
+
 #######################
 
 

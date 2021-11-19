@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
 # Last update :  Oct. 2021
-# Version 1.9
+# Version 2.0
 # Licence GPL v3
 #--------
 
@@ -369,7 +369,7 @@
 
 #----------
 if (!isGeneric("ccm")) {
-  setGeneric("ccm", function(p,tmin,tmax,tmean,stat,t1,t2,extreme,longlat,ny,...)
+  setGeneric("ccm", function(p,tmin,tmax,tmean,stat,t1,t2,extreme,longlat,ny, ...)
     standardGeneric("ccm"))
 }
 
@@ -503,7 +503,7 @@ setMethod('ccm', signature(p='RasterStackBrickTS'),
 
 #----------------
 setMethod('ccm', signature(p='RasterStackBrick'),
-          function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,dates,longlat,ny,...) {
+          function(p,tmin,tmax,tmean,stat,t1,t2,extreme,longlat,ny,...) {
             if (missing(p)) p <- NULL
             if (missing(tmin)) tmin <- NULL
             if (missing(tmax)) tmax <- NULL
