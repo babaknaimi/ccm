@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Sep. 2021
-# Last update :  Oct. 2021
-# Version 1.1
+# Last update :  Dec. 2021
+# Version 1.2
 # Licence GPL v3
 #--------
 
@@ -22,6 +22,10 @@
   calc(x,.tempgradFun)
 }
 #--------------
+.tempgradSpatRaster <- function(x) {
+  app(x,.tempgradFun)
+}
+#--------------
 
 .spatialgrad <- function(rx, y_diff = 1) {
   # based on the function provided in the vocc package (https://github.com/cbrown5/vocc)
@@ -30,7 +34,7 @@
   
   nlats <- nrow(rx)
   nlons <- ncol(rx)
-  y <- data.frame(adjacent(rx, 1:ncell(rx), 8))
+  y <- data.frame(adjacent(rx, cells=1:ncell(rx), directions=8,pairs=TRUE))
   y <- y[order(y$from, y$to),]
   y <- na.omit(y)
   y$sst <- getValues(rx)[y$to]
@@ -113,6 +117,26 @@
   
   return(v)
 }
+#--------
+
+.calcvelocitySpatRaster <- function(grad, slope) {
+  #slope$w <- y_dist * cos(.rad(slope$y))
+  grad$NS[is.na(grad$NS)] <- 0
+  grad$WE[is.na(grad$WE)] <- 0
+  grad$NAsort <- ifelse((abs(grad$NS)+abs(grad$WE)) == 0, NA, 1)
+  grad$Grad <- grad$NAsort * sqrt((grad$WE^2) + (grad$NS^2))
+  
+  v <- rast(slope)
+  
+  v[grad$icell] <- slope[grad$icell] / grad$Grad
+  
+  
+  .o <- quantile(v, prob=c(0.05,0.95))
+  v[v < .o[1]] <- .o[1]
+  v[v > .o[2]] <- .o[2]
+  
+  return(v)
+}
 
 #----------
 if (!isGeneric("temporalTrend")) {
@@ -156,5 +180,23 @@ setMethod('gVelocity', signature(x='RasterStackBrick'),
             g <- .spatialgrad(x)
             s <- .tempgrad(x)
             .calcvelocity(g,s)
+          }
+)
+#-------
+
+setMethod('gVelocity', signature(x='SpatRasterTS'),
+          function(x,...) {
+            g <- .spatialgrad(x@raster)
+            s <- .tempgradSpatRaster(x@raster)
+            .calcvelocitySpatRaster(g,s)
+          }
+)
+#-------
+
+setMethod('gVelocity', signature(x='SpatRaster'),
+          function(x,...) {
+            g <- .spatialgrad(x)
+            s <- .tempgradSpatRaster(x)
+            .calcvelocitySpatRaster(g,s)
           }
 )

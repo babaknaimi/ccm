@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri, taheri.shi@gmail.com; Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  Nov. 2021
-# Version 1.5
+# Last update :  Dec. 2021
+# Version 1.6
 # Licence GPL v3
 #--------
 
@@ -25,7 +25,10 @@
 }
 #=-===============
 .is.projected <- function(x) {
-  e <- as.vector(extent(x))
+  if (inherits(x,'SpatRaster')) {
+    e <- as.vector(ext(x))
+  } else e <- as.vector(extent(x))
+  
   !all(e >= -180 & e <= 180)
 }
 #-----
