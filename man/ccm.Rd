@@ -1,5 +1,7 @@
 \name{ccm}
 \alias{ccm}
+\alias{ccm,SpatRasterTS-method}
+\alias{ccm,SpatRaster-method}
 \alias{ccm,RasterStackBrickTS-method}
 \alias{ccm,RasterStackBrick-method}
 
@@ -10,10 +12,8 @@
 }
 
 \arguments{
-  \item{p}{a Raster object or a Raster Time Series of precipitation}
-  \item{tmin}{a Raster object or a Raster Time Series of minimum temperature }
-  \item{tmax}{a Raster object or a Raster Time Series of maximum temperature }
-  \item{tmean}{a Raster object or a Raster Time Series of mean temperature }
+  \item{x}{a Raster object or a Raster Time Series of a climate variable}
+  \item{...}{additional climate variables can be included as a Raster object or a Raster Time Series}
   \item{stat}{a character specifying the metric used to generate climate change metrics, can be either of 'sed', 'leech', 'aac', 'dac', 've', 'gVe', 'dVe'}
   \item{t1}{a chanracter or a numeric vector, specifying the index of raster layers for time 1}
   \item{t2}{a chanracter or a numeric vector, specifying the index of raster layers for time 2}

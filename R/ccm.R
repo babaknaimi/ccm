@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  Dec. 2021
-# Version 2.1
+# Last update :  March 2022
+# Version 2.2
 # Licence GPL v3
 #--------
 
@@ -74,9 +74,6 @@
 # 
 
 
-
-
-
 #----------
 if (!isGeneric("ccm")) {
   setGeneric("ccm", function(x,...,stat,t1,t2,extreme,longlat,ny,dates,names)
@@ -84,12 +81,11 @@ if (!isGeneric("ccm")) {
 }
 
 
-
-
-
 setMethod('ccm', signature(x='SpatRasterTS'),
           function(x,...,stat,t1,t2,extreme=0.95,longlat,ny,dates,names) {
             xx <- list(x,...)
+            
+            if (missing(t1) || missing(t2)) stop("t1 and t2 (layers' indicators corresponding to time1 and time2) are not provided!")
             
             if (missing(ny)) {
               ny <- nyears(xx[[1]]@time)
@@ -101,31 +97,35 @@ setMethod('ccm', signature(x='SpatRasterTS'),
             
             if (stat == 'sed') {
               .sed(xx,t1=t1,t2=t2)
-            } else if (stat %in% c('leech','eech','exch','localExtreme')) {
+            } else if (stat %in% c('le','lce','lextreme','localExtreme','localClimateExtreme','lech')) {
               
-              if (missing(extreme)) stop('extreme is needed...!')
-              else if (length(extreme) == 1) {
-                if (extreme > 1 || extreme < 0) stop('extreme should be within the range of 0 and 1')
-                else {
-                  extreme <- c(extreme,1-extreme)
-                  warning('Only one value is provided for extreme that is assumed for the first variable, and for the second variable, 1-extreme is considered...!')
-                }
-              } else if (length(extreme) > 2) {
-                extreme <- extreme[1:2]
-                warning('More than two values are provided for extreme; Only the first two values are considered!')
-              }
-              
-              if (length(xx) < 2) stop('two variables should be provided to ')
-              else if (length(xx) > 2) {
+              if (missing(extreme)) stop('"extreme" is needed...!')
+              #-
+              if (length(xx) > 2) {
                 xx <- xx[[1:2]]
-                warning('For eeChange metric, two variables are required (e.g., temperature and precipitation); Only the first two variables are considered!')
+                warning('localExtreme metric can be calculated using either one or two climate variables... only the first two variables are used!')
+              }
+              #-
+              if (length(extreme) > length(xx)) {
+                warning(paste0('number of extreme probabilities (',length(extreme),') should be equal to the number of climate parameters (',length(xx),'); Only the first ',length(xx),' values from extreme is used!'))
+                extreme <- extreme[1:length(xx)]
+              }
+              #-
+              if (length(extreme) < length(xx)) stop('extreme probabilities should be provided for both climate parameters')
+              #-
+              if (any(extreme > 1 | extreme < 0)) stop('extreme is a probability value that should be within the range of 0 and 1')  
+              #-------------------------
+              x1 <- x2 <- list()
+              for (i in 1:length(xx)) {
+                x1[[i]] <- xx[[i]][[t1]]@raster
+                x2[[i]] <- xx[[i]][[t2]]@raster
               }
               
-              .eeChange(xx,t1=t1,t2=t2,extreme=extreme)
+              .eeChange(x1,x2,extreme)
               
             } else if (stat == 'nc') {
               .n <- .nc(xx,t1=t1,t2=t2)
-              .q <- global(a,quantile,probs=0.995,na.rm=TRUE)[1,1]
+              .q <- global(.n,quantile,probs=0.99,na.rm=TRUE)[1,1]
               .n <- ifel(.n >= .q,.q,.n)
               .n
             } else if (stat %in% c('dac','aac')) {
@@ -358,6 +358,10 @@ setMethod('ccm', signature(x='SpatRasterTS'),
 
 setMethod('ccm', signature(x='RasterStackBrickTS'),
           function(x,...,stat,t1,t2,extreme=0.95,longlat,ny,dates,names) {
+            
+            xx <- list(x,...)
+            
+            
             if (missing(p)) p <- NULL
             if (missing(tmin)) tmin <- NULL
             if (missing(tmax)) tmax <- NULL
