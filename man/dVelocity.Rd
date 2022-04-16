@@ -3,6 +3,7 @@
 \alias{dVelocity,RasterStackBrickTS-method}
 \alias{dVelocity,RasterStackBrick-method}
 \alias{dVelocity,SpatRaster-method}
+\alias{dVelocity,SpatRasterTS-method}
 
 \title{Distant-based Velocity of Climate Change}
 
@@ -28,7 +29,7 @@ Garcia, R.A., Cabeza, M., Rahbek, C. and Araújo, M.B. (2014). Multiple dimensio
 }
 \examples{
 #-------
-path <- system.file("external/", package="ccm") # path to the dataset folder
+#path <- system.file("external/", package="climetrics") # path to the dataset folder
 
 
 

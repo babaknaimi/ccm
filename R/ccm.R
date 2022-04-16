@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  March 2022
-# Version 2.2
+# Last update :  July 2022
+# Version 2.5
 # Licence GPL v3
 #--------
 
@@ -76,34 +76,65 @@
 
 #----------
 if (!isGeneric("ccm")) {
-  setGeneric("ccm", function(x,...,stat,t1,t2,extreme,longlat,ny,dates,names)
+  setGeneric("ccm", function(x,...,stat,t1,t2,extreme,longlat,ny,names,verbose=TRUE)
     standardGeneric("ccm"))
 }
 
 
 setMethod('ccm', signature(x='SpatRasterTS'),
-          function(x,...,stat,t1,t2,extreme=0.95,longlat,ny,dates,names) {
-            xx <- list(x,...)
+          function(x,...,stat,t1,t2,extreme,longlat,ny,names,verbose=TRUE) {
+            xx <- list(x=x,...)
             
             if (missing(t1) || missing(t2)) stop("t1 and t2 (layers' indicators corresponding to time1 and time2) are not provided!")
             
-            if (missing(ny)) {
-              ny <- nyears(xx[[1]]@time)
-            }
+            if (missing(names)) names <- NULL
+            
+            if (missing(verbose)) verbose <- TRUE
             
             if (missing(longlat)) {
               longlat <- .is.projected(xx[[1]]@raster)
             }
             
-            if (stat == 'sed') {
-              .sed(xx,t1=t1,t2=t2)
-            } else if (stat %in% c('le','lce','lextreme','localExtreme','localClimateExtreme','lech')) {
+            if (missing(stat)) stop('stat should be specified!')
+            
+            stat <- tolower(stat)
+            
+            for (i in 1:length(stat)) {
+              if (any(c('sed','sla','localanomalies','anomaly') %in% stat[i])) stat[i] <- 'sed'
+              else if (any(c('le','lce','lextreme','localextreme','localclimateextreme','lech','lee','extreme') %in% stat[i])) stat[i] <- 'localExtreme'
+              else if (any(c('nc','novel','novelc','novelclimate') %in% stat[i])) stat[i] <- 'novelClimate'
+              else if (any(c('aac','analogous','aaclimate','analog','aanalog','ac') %in% stat[i])) stat[i] <- 'aaClimate'
+              else if (any(c('dac','daclimate','disanalog','danalog') %in% stat[i])) stat[i] <- 'daClimate'
+              else if (any(c('ve','velocity','vel') %in% stat[i])) stat[i] <- 'velocity'
+              else if (any(c('dve','dvelocity','dvel','distancevelocity') %in% stat[i])) stat[i] <- 'dVelocity'
+              else if (any(c('gve','gvelocity','gvel','gradiantvelocity','gradv','gradve') %in% stat[i])) stat[i] <- 'gVelocity'
+              else stat[i] <- NA
+            }
+            
+            if (all(is.na(stat))) stop('the metrics specified in stat are unknown!')
+            
+            if (any(is.na(stat))) {
+              warning(paste0('Some of the metrics specified in stat (',length(which(is.na(stat))),' metrics) are unknown that are discarded!'))
+              stat <- stat[!is.na(stat)]
+            }
+            
+            o <- vector('list',length = length(stat))
+            names(o) <- stat
+            
+            if ('sed' %in% stat) {
+              o[['sed']] <- .sed(xx,t1=t1,t2=t2)
+            }
+            #--------
+            if ('localExtreme' %in% stat) {
               
               if (missing(extreme)) stop('"extreme" is needed...!')
               #-
               if (length(xx) > 2) {
-                xx <- xx[[1:2]]
-                warning('localExtreme metric can be calculated using either one or two climate variables... only the first two variables are used!')
+                xx <- xx[1:2]
+                
+                if (verbose) cat('\nlocalExtreme metric can be calculated using either one or two climate variables... only the first two variables are used!')
+                else warning('localExtreme metric can be calculated using either one or two climate variables... only the first two variables are used!')
+                
               }
               #-
               if (length(extreme) > length(xx)) {
@@ -121,49 +152,58 @@ setMethod('ccm', signature(x='SpatRasterTS'),
                 x2[[i]] <- xx[[i]][[t2]]@raster
               }
               
-              .eeChange(x1,x2,extreme)
+              o[['localExtreme']] <- .eeChange(x1,x2,extreme)
               
-            } else if (stat == 'nc') {
+            }
+            #-------
+            if ('novelClimate' %in% stat) {
               .n <- .nc(xx,t1=t1,t2=t2)
               .q <- global(.n,quantile,probs=0.99,na.rm=TRUE)[1,1]
               .n <- ifel(.n >= .q,.q,.n)
-              .n
-            } else if (stat %in% c('dac','aac')) {
+              o[['novelClimate']] <- .n
+            }
+            #----
+            if (any(c('daClimate','aaClimate') %in% stat)) {
+              nn <- names(xx)
+              nn <- tolower(nn[nn != ""])
+              if (length(xx) > 4) stop('The aaClimate metric needs precipitation, minimum and maximum temperature (optional also mean temperature). More than 4 input variables are provided')
+              nstat <- c('precip','tmin','tmax','tmean')
+              if (is.null(names)) {
+                if (length(nn) < (length(xx))) {
+                  stop('The "names" argument is missing! names of the input variables should be provided (or the input variables should be provided as the named arguments)!')
+                } else {
+                  for (i in 2:length(nn)) {
+                    nn[i] <- .argMatch(nn[i],nstat)  
+                    
+                    # if (nn[i] %in% c('precipitation','prec','p','pr','precip')) nn[i] <- 'precip'
+                    # else if (nn[i] %in% c('precipitation','prec','p','pr','precip')) nn[i] <- 'precip'
+                    # else if (nn[i] %in% c('precipitation','prec','p','pr','precip')) nn[i] <- 'precip'
+                    # else if (nn[i] %in% c('precipitation','prec','p','pr','precip')) nn[i] <- 'precip'
+                  }
+                  if (any(is.na(nn))) stop('The aaClimate metric needs precipitation, minimum and maximum temperature (optional also mean temperature). The input variables are not identified! Specify their names in the names argument!')
+                  
+                  w <- which(!nstat %in% nn)
+                  if (length(w) > 1) {
+                    if (!'tmean' %in% nn) {
+                      nn[1] <- nstat[which(!nstat[-4] %in% nn)]
+                    } else stop('The aaClimate metric needs precipitation, minimum and maximum temperature (optional also mean temperature). The input variables are not identified! Specify their names in the names argument!')
+                  } else {
+                    nn[1] <- nstat[w]
+                  }
+                }
+                names <- nn
+              } else {
+                names <- tolower(names)
+                if (length(names) != length(xx)) stop('The length of the provided "names" is not equal to the number of the input variables!')
+              }
+              nstat <- c('precip','tmin','tmax','tmean')
+              for (i in 2:length(names)) {
+                names[i] <- .argMatch(names[i],nstat)  
+              }
               
-              if (missing(names)) stop('The argument of "names" is missing! names of the input variables should be provided...!')
-              
-              if (length(names) != length(xx)) stop('The length of the provided "names" is not the same of the number of the input variables!')
-              
-              
-              names <- lower(names)
-              
-              
-              w <- which(names %in% c('precipitation','prec','p','pr','precip'))
-              
-              if (length(w) == 0) stop('Precipitation is not provided (or its name is not identified)!')
-              else if (length(w) > 1) stop('It seems two variables are provided that are related to precipitation; one precipitation variable is needed!')
-              
-              names[w] <- 'prec'
-              #---
-              w <- which(names %in% c('temp.min','tmin','tmn','tempmin','mintemp','min.temp'))
-              if (length(w) == 0) stop('Minimum Temperature (tmin) is not provided (or its name is not identified)!')
-              else if (length(w) > 1) stop('It seems two variables are provided that are related to Minimum Temperature (tmin); one variable is needed!')
-              
-              names[w] <- 'tmin'
-              
-              w <- which(names %in% c('temp.max','tmax','tmx','tempmax','maxtemp','max.temp'))
-              if (length(w) == 0) stop('Maximum Temperature (tmax) is not provided (or its name is not identified)!')
-              else if (length(w) > 1) stop('It seems two variables are provided that are related to Maximum Temperature (tmax); one variable is needed!')
-              
-              names[w] <- 'tmax'
-              #----------
-              w <- which(names %in% c('temp.mean','tmean','taverage','tempmean','meantemp','mean.temp','temp.average'))
-              
-              if (length(w) > 1) stop('It seems two variables are provided that are related to Mean Temperature (tmean); one variable is needed!')
-              else if (length(w) == 1) names[w] <- 'tmean'
-              else if (length(w) == 0) {
+              #------
+              if (!'tmean' %in% names) {
                 names(xx) <- names
-                
                 .tmean <- (xx$tmin@raster + xx$tmax@raster) / 2
                 .tmean <- rts(.tmean,index(xx$tmin))
                 xx$tmean <- .tmean
@@ -179,439 +219,90 @@ setMethod('ccm', signature(x='SpatRasterTS'),
               tmax2 <- xx$tmax[[t2]]
               tmean1 <- xx$tmean[[t1]]
               tmean2 <- xx$tmean[[t2]]
-              prt1 <- xx$prec[[t1]]
-              prt2 <- xx$prec[[t2]]
+              prt1 <- xx$precip[[t1]]
+              prt2 <- xx$precip[[t2]]
               
               k1 <- kgc(apply.months(prt1),apply.months(tmin1),apply.months(tmax1),apply.months(tmean1))
               k2 <- kgc(apply.months(prt2),apply.months(tmin2),apply.months(tmax2),apply.months(tmean2))
               
-              if (stat == 'dac') .disAnalogus(k1,k2)
-              else .analogusClimate(k1,k2)
+              if ('daClimate' %in% stat) o[['daCliamte']] <-  .disAnalogous(k1,k2)
+              if ('aaClimate' %in% stat) o[['aaCliamte']] <-  .analogousClimate(k1,k2)
               
-            } else if (stat == 've') {
-              
-              if (length(xx) == 1) stop('This method of velocity is implemented based on the approach in Hamnan et al. (2014) that works based on two climate variable; For single variable, you may use dVe (dVelocity) stat!')
-              
-              if (length(xx) > 2) stop('This method of velocity is implemented based on the approach in Hamnan et al. (2014) that works based on two climate variable; For multiple variables, you may either use a PCA transformation and take the first two components, or use dVe (dVelocity) stat!')
-              #----
-              p1 <- app(xx[[1]][[t1]]@raster, mean,na.rm=TRUE)
-              f1 <- app(xx[[1]][[t2]]@raster, mean,na.rm=TRUE)
-              
-              p2 <- app(xx[[2]][[t1]]@raster, mean,na.rm=TRUE)
-              f2 <- app(xx[[2]][[t2]]@raster, mean,na.rm=TRUE)
-              
-              .velocMTerra(p1,p2,f1,f2,...)
-              
-            } else if (stat %in% c('dve','dVe','dv','dVE','dVelocity')) {
-              
-              if (length(xx) == 1) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),t1=t1,t2=t2,ny=ny)
-              else if (length(w) == 2) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),t1=t1,t2=t2,ny=ny)
-              else if (length(w) == 3) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),get(c('p','tmin','tmax','tmean')[w[3]]),t1=t1,t2=t2,ny=ny)
-              
-            } else if (stat %in% c('gve','gVe','gv','gVE','gVelocity')) {
-              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-              
-              if (length(w) != 1) stop('The gVelocity implemented in this package works based on a single climate variable, so only provide one of the climate variables you wish to get gradiant-based velocity for!')
-              
-              gVelocity(get(c('p','tmin','tmax','tmean')[w[1]]))
-              
-              
-            } else stop('stat is unknown...!')
-          }
-)
-
-
-
-# 
-# 
-# 
-# setMethod('ccm', signature(p='SpatRasterTS'),
-#           function(p,tmin,tmax,tmean,stat,t1,t2,extreme=0.95,longlat,ny,...) {
-#             if (missing(p)) p <- NULL
-#             if (missing(tmin)) tmin <- NULL
-#             if (missing(tmax)) tmax <- NULL
-#             if (missing(tmean)) tmean <- NULL
-#             
-#             
-#             w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-#             l1 <- c('p','tmin','tmax','tmean')[w[1]]
-#             
-#             if (missing(ny)) {
-#               ny <- nyears(eval(get(l1))@time)
-#             }
-#             
-#             if (missing(longlat)) {
-#               longlat <- is.projected(crs(eval(get(l1))@raster))
-#               if (is.na(longlat)) {
-#                 longlat <- .is.projected(eval(get(l1))@raster)
-#               }
-#             }
-#             
-#             
-#             if (stat == 'sed') {
-#               .sed(p,tmin,tmax,tmean,t1=t1,t2=t2)
-#             } else if (stat %in% c('leech','eech','exch','localExtreme')) {
-#               
-#               if (is.null(p)) stop('precipitation (p) is not provided...!')
-#               
-#               if (missing(extreme)) extreme <- 0.95
-#               
-#               if (is.null(tmean)) {
-#                 if (!is.null(tmax) & !is.null(tmin)) {
-#                   tmean <- (tmin@raster + tmax@raster) / 2
-#                   tmean <- rts(tmean,index(tmin))
-#                 } else if (!is.null(tmax)) {
-#                   tmean <- tmax
-#                   warning('tmean is not provided, tmax is used instead...!')
-#                 }  else if (!is.null(tmin)) {
-#                   tmean <- tmin
-#                   warning('tmean is not provided, tmin is used instead...!')
-#                 } else {
-#                   stop('temperature is not provided...!')
-#                 }
-#               }
-#               
-#               .eeChange(tmean,p,t1=t1,t2=t2,extreme=extreme)
-#             } else if (stat == 'nc') {
-#               .nc(p,tmin,tmax,tmean,t1=t1,t2=t2)
-#             } else if (stat == 'dac') {
-#               if (is.null(tmean)) {
-#                 if (!is.null(tmax) & !is.null(tmin)) {
-#                   tmean <- (tmin@raster + tmax@raster) / 2
-#                   tmean <- rts(tmean,index(tmin))
-#                 } else stop('Both tmin and tmax are needed...!')
-#               }
-#               #-----
-#               tmin1 <- tmin[[t1]]
-#               tmin2 <- tmin[[t2]]
-#               tmax1 <- tmax[[t1]]
-#               tmax2 <- tmax[[t2]]
-#               tmean1 <- tmean[[t1]]
-#               tmean2 <- tmean[[t2]]
-#               prt1 <- p[[t1]]
-#               prt2 <- p[[t2]]
-#               
-#               k1 <- kgc(apply.months(prt1),apply.months(tmin1),apply.months(tmax1),apply.months(tmean1))
-#               k2 <- kgc(apply.months(prt2),apply.months(tmin2),apply.months(tmax2),apply.months(tmean2))
-#               .disAnalogus(k1,k2)
-#             } else if (stat == 'aac') {
-#               if (is.null(tmean)) {
-#                 if (!is.null(tmax) & !is.null(tmin)) {
-#                   tmean <- (tmin@raster + tmax@raster) / 2
-#                   tmean <- rts(tmean,index(tmin))
-#                 } else stop('Both tmin and tmax are needed...!')
-#               }
-#               #-----
-#               tmin1 <- tmin[[t1]]
-#               tmin2 <- tmin[[t2]]
-#               tmax1 <- tmax[[t1]]
-#               tmax2 <- tmax[[t2]]
-#               tmean1 <- tmean[[t1]]
-#               tmean2 <- tmean[[t2]]
-#               prt1 <- p[[t1]]
-#               prt2 <- p[[t2]]
-#               
-#               k1 <- kgc(apply.months(prt1),apply.months(tmin1),apply.months(tmax1),apply.months(tmean1))
-#               k2 <- kgc(apply.months(prt2),apply.months(tmin2),apply.months(tmax2),apply.months(tmean2))
-#               .analogusClimate(k1,k2)
-#               
-#             } else if (stat == 've') {
-#               nl <- length(which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean))))
-#               if (nl > 2) {
-#                 stop('This method of velocity is implemented based on the approach in Hamnan et al. (2014) that works based on two climate variable; For multiple variables, you may either use a PCA transformation and take the first two components, or use dVe (dVelocity) stat!')
-#               }
-#               #----
-#               
-#               w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-#               l1 <- c('p','tmin','tmax','tmean')[w[1]]
-#               l2 <- c('p','tmin','tmax','tmean')[w[2]]
-#               p1 <- calc(eval(get(l1))[[t1]]@raster, mean)
-#               f1 <- calc(eval(get(l1))[[t2]]@raster, mean)
-#               p2 <- calc(eval(get(l2))[[t1]]@raster, mean)
-#               f2 <- calc(eval(get(l2))[[t2]]@raster, mean)
-#               .velocM(p1,p2,f1,f2,...)
-#               
-#             } else if (stat %in% c('dve','dVe','dv','dVE','dVelocity')) {
-#               
-#               w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-#               
-#               if (length(w) == 1) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),t1=t1,t2=t2,ny=ny)
-#               else if (length(w) == 2) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),t1=t1,t2=t2,ny=ny)
-#               else if (length(w) == 3) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),get(c('p','tmin','tmax','tmean')[w[3]]),t1=t1,t2=t2,ny=ny)
-#               
-#             } else if (stat %in% c('gve','gVe','gv','gVE','gVelocity')) {
-#               w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-#               
-#               if (length(w) != 1) stop('The gVelocity implemented in this package works based on a single climate variable, so only provide one of the climate variables you wish to get gradiant-based velocity for!')
-#               
-#               gVelocity(get(c('p','tmin','tmax','tmean')[w[1]]))
-#               
-#               
-#             } else stop('stat is unknown...!')
-#           }
-# )
-
-
-
-#----------------
-
-
-setMethod('ccm', signature(x='RasterStackBrickTS'),
-          function(x,...,stat,t1,t2,extreme=0.95,longlat,ny,dates,names) {
-            
-            xx <- list(x,...)
-            
-            
-            if (missing(p)) p <- NULL
-            if (missing(tmin)) tmin <- NULL
-            if (missing(tmax)) tmax <- NULL
-            if (missing(tmean)) tmean <- NULL
-            
-            
-            w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-            l1 <- c('p','tmin','tmax','tmean')[w[1]]
-            
-            if (missing(ny)) {
-              ny <- nyears(eval(get(l1))@time)
             }
             
-            if (missing(longlat)) {
-              longlat <- is.projected(crs(eval(get(l1))@raster))
-              if (is.na(longlat)) {
-                longlat <- .is.projected(eval(get(l1))@raster)
-              }
-            }
-            
-            
-            if (stat == 'sed') {
-              .sed(p,tmin,tmax,tmean,t1=t1,t2=t2)
-            } else if (stat %in% c('leech','eech','exch','localExtreme')) {
+            if ('velocity' %in% stat) {
               
-              if (is.null(p)) stop('precipitation (p) is not provided...!')
-              
-              if (missing(extreme)) extreme <- 0.95
-              
-              if (is.null(tmean)) {
-                if (!is.null(tmax) & !is.null(tmin)) {
-                  tmean <- (tmin@raster + tmax@raster) / 2
-                  tmean <- rts(tmean,index(tmin))
-                } else if (!is.null(tmax)) {
-                  tmean <- tmax
-                  warning('tmean is not provided, tmax is used instead...!')
-                }  else if (!is.null(tmin)) {
-                  tmean <- tmin
-                  warning('tmean is not provided, tmin is used instead...!')
-                } else {
-                  stop('temperature is not provided...!')
+              if (length(xx) > 1) {
+                if (length(xx) > 2) {
+                  if (verbose) cat('\nTo claculate the stat "velocity" (ve), the first two climate variables are used as the metric is implemented based on the approach in Hamnan et al. (2014), works based on two climate variable (For multiple variables, you may either use a PCA transformation and take the first two components)!')
+                  else warning('To claculate the stat "velocity" (ve), the first two climate variables are used as the metric is implemented based on the approach in Hamnan et al. (2014), works based on two climate variable (For multiple variables, you may either use a PCA transformation and take the first two components)!')
                 }
+              } else {
+                if (length(stat) > 1) {
+                  if (verbose) cat('\nThe stat "velocity" (ve) is ignored as it is calculated based on two climate variables (Hamnan et al., 2014)')
+                  else warning('The stat "velocity" (ve) is ignored as it is calculated based on two climate variables (Hamnan et al., 2014)')
+                } else stop('This method of velocity is implemented based on the approach in Hamnan et al. (2014) that works based on two climate variable; For single variable, you may use dVe (dVelocity) stat!')
               }
               
-              .eeChange(tmean,p,t1=t1,t2=t2,extreme=extreme)
-            } else if (stat == 'nc') {
-              .nc(p,tmin,tmax,tmean,t1=t1,t2=t2)
-            } else if (stat == 'dac') {
-              if (is.null(tmean)) {
-                if (!is.null(tmax) & !is.null(tmin)) {
-                  tmean <- (tmin@raster + tmax@raster) / 2
-                  tmean <- rts(tmean,index(tmin))
-                } else stop('Both tmin and tmax are needed...!')
-              }
-              #-----
-              tmin1 <- tmin[[t1]]
-              tmin2 <- tmin[[t2]]
-              tmax1 <- tmax[[t1]]
-              tmax2 <- tmax[[t2]]
-              tmean1 <- tmean[[t1]]
-              tmean2 <- tmean[[t2]]
-              prt1 <- p[[t1]]
-              prt2 <- p[[t2]]
               
-              k1 <- kgc(apply.months(prt1),apply.months(tmin1),apply.months(tmax1),apply.months(tmean1))
-              k2 <- kgc(apply.months(prt2),apply.months(tmin2),apply.months(tmax2),apply.months(tmean2))
-              .disAnalogus(k1,k2)
-            } else if (stat == 'aac') {
-              if (is.null(tmean)) {
-                if (!is.null(tmax) & !is.null(tmin)) {
-                  tmean <- (tmin@raster + tmax@raster) / 2
-                  tmean <- rts(tmean,index(tmin))
-                } else stop('Both tmin and tmax are needed...!')
-              }
-              #-----
-              tmin1 <- tmin[[t1]]
-              tmin2 <- tmin[[t2]]
-              tmax1 <- tmax[[t1]]
-              tmax2 <- tmax[[t2]]
-              tmean1 <- tmean[[t1]]
-              tmean2 <- tmean[[t2]]
-              prt1 <- p[[t1]]
-              prt2 <- p[[t2]]
-              
-              k1 <- kgc(apply.months(prt1),apply.months(tmin1),apply.months(tmax1),apply.months(tmean1))
-              k2 <- kgc(apply.months(prt2),apply.months(tmin2),apply.months(tmax2),apply.months(tmean2))
-              .analogusClimate(k1,k2)
-              
-            } else if (stat == 've') {
-              nl <- length(which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean))))
-              if (nl > 2) {
-                stop('This method of velocity is implemented based on the approach in Hamnan et al. (2014) that works based on two climate variable; For multiple variables, you may either use a PCA transformation and take the first two components, or use dVe (dVelocity) stat!')
-              }
               #----
+              p1 <- app(xx[[1]][[t1]]@raster, 'mean',na.rm=TRUE)
+              f1 <- app(xx[[1]][[t2]]@raster, 'mean',na.rm=TRUE)
               
-              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-              l1 <- c('p','tmin','tmax','tmean')[w[1]]
-              l2 <- c('p','tmin','tmax','tmean')[w[2]]
-              p1 <- calc(eval(get(l1))[[t1]]@raster, mean)
-              f1 <- calc(eval(get(l1))[[t2]]@raster, mean)
-              p2 <- calc(eval(get(l2))[[t1]]@raster, mean)
-              f2 <- calc(eval(get(l2))[[t2]]@raster, mean)
-              .velocM(p1,p2,f1,f2,...)
+              p2 <- app(xx[[2]][[t1]]@raster, 'mean',na.rm=TRUE)
+              f2 <- app(xx[[2]][[t2]]@raster, 'mean',na.rm=TRUE)
               
-            } else if (stat %in% c('dve','dVe','dv','dVE','dVelocity')) {
+              o[['velocity']] <-  .velocMTerra(p1,p2,f1,f2,...)
               
-              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-              
-              if (length(w) == 1) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),t1=t1,t2=t2,ny=ny)
-              else if (length(w) == 2) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),t1=t1,t2=t2,ny=ny)
-              else if (length(w) == 3) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),get(c('p','tmin','tmax','tmean')[w[3]]),t1=t1,t2=t2,ny=ny)
-              
-            } else if (stat %in% c('gve','gVe','gv','gVE','gVelocity')) {
-              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-              
-              if (length(w) != 1) stop('The gVelocity implemented in this package works based on a single climate variable, so only provide one of the climate variables you wish to get gradiant-based velocity for!')
-              
-              gVelocity(get(c('p','tmin','tmax','tmean')[w[1]]))
-              
-              
-            } else stop('stat is unknown...!')
-          }
-)
-
-
-
-#----------------
-setMethod('ccm', signature(x='RasterStackBrick'),
-          function(x,...,stat,t1,t2,extreme,longlat,ny,dates,names) {
-            if (missing(p)) p <- NULL
-            if (missing(tmin)) tmin <- NULL
-            if (missing(tmax)) tmax <- NULL
-            if (missing(tmean)) tmean <- NULL
+            } 
             
-            if (missing(longlat)) {
-              longlat <- is.projected(crs(p))
-              if (is.na(longlat)) {
-                longlat <- .is.projected(p)
+            if ('dVelocity' %in% stat) {
+              if (missing(ny)) ny <- .getNyears(xx[[1]]@time,t1,t2)
+              
+              xt1 <- xt2 <- list()
+              
+              for (i in 1:length(xx)) {
+                xt1[[i]] <- mean(xx[[i]][[t1]]@raster,na.rm=TRUE)
+                xt2[[i]] <- mean(xx[[i]][[t2]]@raster,na.rm=TRUE)
               }
+              #---------------
+              
+              r <- .getScaledMultiVariateIntoOne(xt1,xt2)
+              s <- .spatialgrTerra(r$t1)
+              t <- .tempgr(r$t1,r$t2,ny = ny)
+              o[['dVelocity']] <- .getVelocity(s,t)
             }
             
-            
-            if (stat == 'sed') {
-              .sedR(p,tmin,tmax,tmean,t1=t1,t2=t2)
-            } else if (stat %in% c('leech','eech','exch','localExtreme')) {
-              
-              if (is.null(p)) stop('precipitation (p) is not provided...!')
-              
-              if (missing(extreme)) extreme <- 0.95
-              
-              if (is.null(tmean)) {
-                if (!is.null(tmax) & !is.null(tmin)) {
-                  tmean <- (tmin + tmax) / 2
-                } else if (!is.null(tmax)) {
-                  tmean <- tmax
-                  warning('tmean is not provided, tmax is used instead...!')
-                }  else if (!is.null(tmin)) {
-                  tmean <- tmin
-                  warning('tmean is not provided, tmin is used instead...!')
-                } else {
-                  stop('temperature is not provided...!')
-                }
+            if ('gVelocity' %in% stat) {
+              if (length(xx) > 1) {
+                
+                if (verbose) cat('\ngVelocity is calculated for a single climate variable. Since multiple variables are provided, average velocity is returned! ')
+                else warning('gVelocity is calculated for a single climate variable. Since multiple variables are provided, average velocity is returned! ')
+                
               }
               
-              .eeChangeR(tmean,p,t1=t1,t2=t2,extreme=extreme)
-            } else if (stat == 'nc') {
-              .ncR(p,tmin,tmax,tmean,t1=t1,t2=t2)
-            } else if (stat == 'dac') {
-              if (missing(dates)) stop('corresponding times/dates for raster layers are needed, should be provided in the "dates" argument...!')
+              r <- list()
               
-              if (length(dates) != nlayers(p)) stop('The number of items in dates is not equal to the number of raster layers...!')
-              
-              if (is.null(tmean)) {
-                if (!is.null(tmax) & !is.null(tmin)) {
-                  tmean <- (tmin + tmax) / 2
-                } else stop('Both tmin and tmax are needed...!')
+              for (i in 1:length(xx)) {
+                r[[i]] <- gVelocity(xx[[i]])
               }
-              #-----
-              tmin1 <- tmin[[t1]]
-              tmin2 <- tmin[[t2]]
-              tmax1 <- tmax[[t1]]
-              tmax2 <- tmax[[t2]]
-              tmean1 <- tmean[[t1]]
-              tmean2 <- tmean[[t2]]
-              prt1 <- p[[t1]]
-              prt2 <- p[[t2]]
-              
-              k1 <- kgc(apply.months(prt1,dates=dates[t1]),apply.months(tmin1,dates=dates[t1]),apply.months(tmax1,dates=dates[t1]),apply.months(tmean1,dates=dates[t1]))
-              k2 <- kgc(apply.months(prt2,dates=dates[t2]),apply.months(tmin2,dates=dates[t2]),apply.months(tmax2,dates=dates[t2]),apply.months(tmean2,dates=dates[t2]))
-              .disAnalogus(k1,k2)
-            } else if (stat == 'aac') {
-              if (missing(dates)) stop('corresponding times/dates for raster layers are needed, should be provided in the "dates" argument...!')
-              
-              if (length(dates) != nlayers(p)) stop('The number of items in dates is not equal to the number of raster layers...!')
-              
-              if (is.null(tmean)) {
-                if (!is.null(tmax) & !is.null(tmin)) {
-                  tmean <- (tmin + tmax) / 2
-                } else stop('Both tmin and tmax are needed...!')
+              #---------------
+              if (length(xx) > 1) {
+                o[['gVelocity']] <- mean(rast(r),na.rm=TRUE)
+              } else {
+                o[['gVelocity']] <- r[[1]]
               }
-              #-----
-              tmin1 <- tmin[[t1]]
-              tmin2 <- tmin[[t2]]
-              tmax1 <- tmax[[t1]]
-              tmax2 <- tmax[[t2]]
-              tmean1 <- tmean[[t1]]
-              tmean2 <- tmean[[t2]]
-              prt1 <- p[[t1]]
-              prt2 <- p[[t2]]
+            }
               
-              k1 <- kgc(apply.months(prt1,dates=dates[t1]),apply.months(tmin1,dates=dates[t1]),apply.months(tmax1,dates=dates[t1]),apply.months(tmean1,dates=dates[t1]))
-              k2 <- kgc(apply.months(prt2,dates=dates[t2]),apply.months(tmin2,dates=dates[t2]),apply.months(tmax2,dates=dates[t2]),apply.months(tmean2,dates=dates[t2]))
-              .analogusClimate(k1,k2)
-            } else if (stat == 've') {
-              nl <- length(which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean))))
-              if (nl > 2) {
-                stop('This method of velocity is implemented based on the approach in Hamnan et al. (2014) that works based on two climate variable; For multiple variables, you may either use a PCA transformation and take the first two components, or use dVe (dVelocity) stat!')
-              }
-              
-              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-              l1 <- c('p','tmin','tmax','tmean')[w[1]]
-              l2 <- c('p','tmin','tmax','tmean')[w[2]]
-              p1 <- calc(get(l1)[[t1]], mean)
-              f1 <- calc(get(l1)[[t2]], mean)
-              p2 <- calc(get(l2)[[t1]], mean)
-              f2 <- calc(get(l2)[[t2]], mean)
-              .velocM(p1,p2,f1,f2,...)
-              
-            } else if (stat %in% c('dve','dVe','dv','dVE','dVelocity')) {
-              
-              if (missing(ny)) {
-                if (!missing(dates)) ny <- nyears(dates)
-                else stop('ny (number of years) should be specified...!')
-              }
-              
-              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-              
-              if (length(w) == 1) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),t1=t1,t2=t2,ny=ny)
-              else if (length(w) == 2) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),t1=t1,t2=t2,ny=ny)
-              else if (length(w) == 3) dVelocity(get(c('p','tmin','tmax','tmean')[w[1]]),get(c('p','tmin','tmax','tmean')[w[2]]),get(c('p','tmin','tmax','tmean')[w[3]]),t1=t1,t2=t2,ny=ny)
-              
-            } else if (stat %in% c('gve','gVe','gv','gVE','gVelocity')) {
-              w <- which(c(!is.null(p),!is.null(tmin),!is.null(tmax),!is.null(tmean)))
-              
-              if (length(w) != 1) stop('The gVelocity implemented in this package works based on a single climate variable, so only provide one of the climate variables you wish to get gradiant-based velocity for!')
-              
-              gVelocity(get(c('p','tmin','tmax','tmean')[w[1]]))
-              
-              
-            } else stop('stat is unknown...!')
-            
+             if (length(o) > 1) {
+               o <- rast(o)
+               names(o) <- stat
+             } else {
+               o <- o[[1]]
+             }
+            o
           }
 )
+
+
+

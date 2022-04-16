@@ -4,6 +4,7 @@
 \alias{sed,SpatRaster-method}
 \alias{sed,RasterStackBrickTS-method}
 \alias{sed,RasterStackBrick-method}
+\alias{sed,missing-method}
 
 \title{Standardized Local Anomalies}
 
@@ -23,8 +24,36 @@ Standardized Local Anomalies is one of the climate change metrics to quantify th
 
 }
 \examples{
-#-------
-path <- system.file("external/", package="ccm") # path to the dataset folder
+\dontrun{
+filePath <- system.file("external/", package="climetircs") # path to the dataset folder
+
+# read the climate variables using the terra package (you can use the raster package as well):
+
+pr <- rast(paste0(filePath,'/precip.tif'))
+tmin <- rast(paste0(filePath,'/tmin.tif'))
+tmax <- rast(paste0(filePath,'/tmax.tif'))
+
+n <- readRDS(paste0(filePath,'/dates.rds')) # read corresoinding dates
+
+head(n) # Dates corresponds to the layers in climate variables (pr, tmin, tmax, tmean)
+
+####################
+
+# use rts function in the rts package to make a raster time series:
+
+pr.t <- rts(pr,n) 
+tmin.t <- rts(tmin,n)
+tmax.t <- rts(tmax,n)
+
+###########################
+# test of the metric:
+
+s <- novelClimate(pr.t,tmin.t,tmax.t,t1='1971/1990',t2='2001/2020') 
+plot(s, main='Standardized Local Anomalies')
+
+
+
+}
 
 
 

@@ -3,6 +3,7 @@
 \alias{apply.months,RasterStackBrickTS-method}
 \alias{apply.months,RasterStackBrick-method}
 \alias{apply.months,SpatRaster-method}
+\alias{apply.months,SpatRasterTS-method}
 
 \title{Apply a function on rasters of each month over years}
 
@@ -22,8 +23,38 @@ the output contains 12 raster layers corresponding to the 12 months (Jan-Dec.). 
 
 }
 \examples{
-#-------
-path <- system.file("external/", package="ccm") # path to the dataset folder
+\dontrun{
+
+path <- system.file("external/", package="climetrics") # path to the dataset folder
+
+
+pr <- rast(paste0(filePath,'/precip.tif'))
+
+n <- readRDS(paste0(filePath,'/dates.rds')) # read corresoinding dates
+
+class(n)
+length(n)
+
+head(n) # Dates corresponds to the layers in climate variables (pr, tmin, tmax, tmean)
+
+####################
+
+# use rts function in the rts package to make a raster time series:
+
+pr.t <- rts(pr,n) 
+
+
+###########################
+
+p12 <- apply.months(pr.t,'mean')
+
+
+p12
+
+plot(p12)
+
+}
+
 
 
 

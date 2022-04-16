@@ -24,8 +24,33 @@ Novel climate is one of the climate change metrics to quantify the dissimilariti
 
 }
 \examples{
-#-------
-path <- system.file("external/", package="ccm") # path to the dataset folder
+\dontrun{
+filePath <- system.file("external/", package="climetrics") # path to the dataset folder
+
+# read the climate variables using the terra package (you can use the raster package as well):
+
+pr <- rast(paste0(filePath,'/precip.tif'))
+tmean <- rast(paste0(filePath,'/tmean.tif'))
+
+pr # has 612 layers corresponds to months of the years 1970-2020
+
+n <- readRDS(paste0(filePath,'/dates.rds')) # read corresoinding dates
+
+head(n) # Dates corresponds to the layers in climate variables (pr, tmin, tmax, tmean)
+
+####################
+
+# use rts function in the rts package to make a raster time series:
+
+pr.t <- rts(pr,n) 
+tmean.t <- rts(tmean,n)
+
+###########################
+# test of the metric:
+
+n1 <- novelClimate(pr.t,tmean.t,t1='1971/1990',t2='2001/2020') 
+plot(n1, main='Novel Climate')
+}
 
 
 

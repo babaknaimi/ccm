@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  Dec. 2021
-# Version 2.1
+# Last update :  April 2022
+# Version 2.2
 # Licence GPL v3
 #--------
 
@@ -12,13 +12,13 @@
   # based on the script provided in Hamnan et al. (2015)
   w <- which(!is.na(p1[]))
   
-  present1 <- as.data.frame(p1)[w,]
-  present2 <- as.data.frame(p2)[w,]
-  future1  <- as.data.frame(f1)[w,]
-  future2  <- as.data.frame(f2)[w,]
+  present1 <- p1[w]
+  present2 <- p2[w]
+  future1  <- f1[w]
+  future2  <- f2[w]
   
   idxy <- data.frame(cbind(id=1:length(present1),xyFromCell(p1,w)) )  # data frame of IDs and XY coords
-  b <- (max(present1)-min(present1))/120  # bin size for 120 PC1 bins
+  b <- (max(present1,na.rm=TRUE)-min(present1,na.rm=TRUE)) / 120  # bin size for 120 PC1 bins
   
   pr1 <- round(present1/b)              # convert PC1 to 120 bins via rounding
   pr2 <- round(present2/b)              # convert PC2 to <120 bins via rounding
@@ -70,13 +70,13 @@
   # based on the script provided in Hamnan et al. (2015)
   w <- which(!is.na(p1[]))
   
-  present1 <- as.data.frame(p1)[w,]
-  present2 <- as.data.frame(p2)[w,]
-  future1  <- as.data.frame(f1)[w,]
-  future2  <- as.data.frame(f2)[w,]
+  present1 <- p1[w][,1]
+  present2 <- p2[w][,1]
+  future1  <- f1[w][,1]
+  future2  <- f2[w][,1]
   
   idxy <- data.frame(cbind(id=1:length(present1),xyFromCell(p1,w)) )  # data frame of IDs and XY coords
-  b <- (max(present1)-min(present1))/120  # bin size for 120 PC1 bins
+  b <- (max(present1,na.rm=TRUE)-min(present1,na.rm=TRUE)) / 120  # bin size for 120 PC1 bins
   
   pr1 <- round(present1/b)              # convert PC1 to 120 bins via rounding
   pr2 <- round(present2/b)              # convert PC2 to <120 bins via rounding
@@ -122,3 +122,80 @@
   else r[cellFromXY(r,out[,c(2,1)])] <- out$distance
   r
 }
+#-----------
+
+if (!isGeneric("velocity")) {
+  setGeneric("velocity", function(x1,x2,t1,t2,...)
+    standardGeneric("velocity"))
+}
+
+setMethod('velocity', signature(x1='SpatRasterTS',x2='SpatRasterTS'),
+          function(x1,x2,t1,t2,...) {
+            
+            if (missing(t1) || missing(t2)) stop("t1 and t2 (layers' indicators corresponding to time1 and time2) are not provided!")
+            
+            
+            p1 <- app(x1[[t1]]@raster, 'mean',na.rm=TRUE)
+            f1 <- app(x1[[t2]]@raster, 'mean',na.rm=TRUE)
+            
+            p2 <- app(x2[[t1]]@raster, 'mean',na.rm=TRUE)
+            f2 <- app(x2[[t2]]@raster, 'mean',na.rm=TRUE)
+            
+            .velocMTerra(p1,p2,f1,f2,...)
+            
+          }
+)
+#------------
+setMethod('velocity', signature(x1='SpatRaster',x2='SpatRaster'),
+          function(x1,x2,t1,t2,...) {
+            
+            if (missing(t1) || missing(t2)) stop("t1 and t2 (layers' indicators corresponding to time1 and time2) are not provided!")
+            
+            if (!is.numeric(t1) || !is.numeric(t2)) stop("t1 and t2 (layers' indicators corresponding to time1 and time2) should be a numeric vector")
+            
+            p1 <- app(x1[[t1]], 'mean',na.rm=TRUE)
+            f1 <- app(x1[[t2]], 'mean',na.rm=TRUE)
+            
+            p2 <- app(x2[[t1]], 'mean',na.rm=TRUE)
+            f2 <- app(x2[[t2]], 'mean',na.rm=TRUE)
+            
+            .velocMTerra(p1,p2,f1,f2,...)
+            
+          }
+)
+#--------
+
+setMethod('velocity', signature(x1='RasterStackBrickTS',x2='RasterStackBrickTS'),
+          function(x1,x2,t1,t2,...) {
+            
+            if (missing(t1) || missing(t2)) stop("t1 and t2 (layers' indicators corresponding to time1 and time2) are not provided!")
+            
+            
+            p1 <- mean(x1[[t1]]@raster, na.rm=TRUE)
+            f1 <- mean(x1[[t2]]@raster, na.rm=TRUE)
+            
+            p2 <- mean(x2[[t1]]@raster,na.rm=TRUE)
+            f2 <- mean(x2[[t2]]@raster,na.rm=TRUE)
+            
+            .velocM(p1,p2,f1,f2,...)
+            
+          }
+)
+#------------
+setMethod('velocity', signature(x1='RasterStackBrick',x2='RasterStackBrick'),
+          function(x1,x2,t1,t2,...) {
+            
+            if (missing(t1) || missing(t2)) stop("t1 and t2 (layers' indicators corresponding to time1 and time2) are not provided!")
+            
+            if (!is.numeric(t1) || !is.numeric(t2)) stop("t1 and t2 (layers' indicators corresponding to time1 and time2) should be a numeric vector")
+            
+            p1 <- calc(x1[[t1]], mean,na.rm=TRUE)
+            f1 <- calc(x1[[t2]], mean,na.rm=TRUE)
+            
+            p2 <- calc(x2[[t1]], mean,na.rm=TRUE)
+            f2 <- calc(x2[[t2]], mean,na.rm=TRUE)
+            
+            .velocM(p1,p2,f1,f2,...)
+            
+          }
+)

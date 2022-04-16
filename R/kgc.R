@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (Naimi.b@gmail.com)
 # Date :  March 2021
-# Last update :  Oct 2021
-# Version 1.1
+# Last update :  July 2022
+# Version 1.2
 # Licence GPL v3
 #--------
 
@@ -44,7 +44,7 @@
   xy <- pdf[,1:2]
   pdf <- pdf[,-c(1:2)]
   
-  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(pm))
   
   if (!all(xy$y >= 0)) {
     if (!all(xy$y < 0)) {
@@ -204,7 +204,7 @@
   xy <- pdf[,1:2]
   pdf <- pdf[,-c(1:2)]
   
-  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(pm))
   
   if (!all(xy$y >= 0)) {
     if (!all(xy$y < 0)) {
@@ -258,7 +258,7 @@
   xy <- pdf[,1:2]
   pdf <- pdf[,-c(1:2)]
   
-  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(pm))
   
   if (!all(xy$y >= 0)) {
     if (!all(xy$y < 0)) {
@@ -310,7 +310,7 @@
   xy <- pdf[,1:2]
   pdf <- pdf[,-c(1:2)]
   
-  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(pm))
   
   if (!all(xy$y >= 0)) {
     if (!all(xy$y < 0)) {
@@ -363,7 +363,7 @@
   xy <- pdf[,1:2]
   pdf <- pdf[,-c(1:2)]
   
-  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(p))
+  if (.getProj(pm) == 'projected') xy <- .getLongLat(xy,projection(pm))
   
   if (!all(xy$y >= 0)) {
     if (!all(xy$y < 0)) {

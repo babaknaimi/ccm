@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (Naimi.b@gmail.com)
 # Date :  March 2021
-# Last update :  Nov. 2021
-# Version 1.1
+# Last update :  March 2022
+# Version 1.2
 # Licence GPL v3
 #--------
 
@@ -21,7 +21,9 @@ setMethod('apply.months', signature(x='RasterStackBrickTS'),
             
             .m <- months(index(x),TRUE)
             
-            xm <- raster(x@raster)
+            w <- which(.m == mbase[1])
+            xm <- calc(x@raster[[w]],FUN, na.rm=TRUE,...)
+            
             for (j in mbase) {
               w <- which(.m == j)
               xm <- addLayer(xm,calc(x@raster[[w]],FUN, na.rm=TRUE,...))
@@ -46,8 +48,10 @@ setMethod('apply.months', signature(x='RasterStackBrick'),
             .m <- months(dates,TRUE)
             if (!all(mbase %in% unique(.m))) stop('All the 12 months are not covered in dates!')
             
-            xm <- raster(x)
-            for (j in mbase) {
+            w <- which(.m == mbase[1])
+            xm <- calc(x[[w]],FUN, na.rm=TRUE,...)
+            
+            for (j in mbase[-1]) {
               w <- which(.m == j)
               xm <- addLayer(xm,calc(x[[w]],FUN, na.rm=TRUE,...))
             }
@@ -73,6 +77,7 @@ setMethod('apply.months', signature(x='SpatRaster'),
             
             w <- which(.m == mbase[1])
             xm <- app(x[[w]],FUN, na.rm=TRUE,...)
+            
             for (j in mbase[-1]) {
               w <- which(.m == j)
               xm <- c(xm,app(x[[w]],FUN, na.rm=TRUE,...))
@@ -91,8 +96,9 @@ setMethod('apply.months', signature(x='SpatRasterTS'),
             
             .m <- months(index(x),TRUE)
             
-            xm <- rast(x@raster)
-            for (j in mbase) {
+            w <- which(.m == mbase[1])
+            xm <- app(x@raster[[w]],FUN, na.rm=TRUE,...)
+            for (j in mbase[-1]) {
               w <- which(.m == j)
               xm <- c(xm,app(x@raster[[w]],FUN, na.rm=TRUE,...))
             }

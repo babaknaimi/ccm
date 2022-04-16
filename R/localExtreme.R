@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  March 2022
-# Version 2.2
+# Last update :  July 2022
+# Version 2.3
 # Licence GPL v3
 #--------
 
@@ -178,7 +178,7 @@ setMethod('localExtreme', signature(x1='SpatRasterTS'),
             if (missing(extreme)) stop('"extreme" is needed...!')
             #-
             if (length(xx) > 2) {
-              xx <- xx[[1:2]]
+              xx <- xx[1:2]
               warning('localExtreme metric can be calculated using either one or two climate variables... only the first two variables are used!')
             }
             #-
@@ -216,7 +216,7 @@ setMethod('localExtreme', signature(x1='SpatRaster'),
             if (missing(extreme)) stop('"extreme" is needed...!')
             #-
             if (length(xx) > 2) {
-              xx <- xx[[1:2]]
+              xx <- xx[1:2]
               warning('localExtreme metric can be calculated using either one or two climate variables... only the first two variables are used!')
             }
             #-
@@ -252,7 +252,7 @@ setMethod('localExtreme', signature(x1='RasterStackBrickTS'),
             if (missing(extreme)) stop('"extreme" is needed...!')
             #-
             if (length(xx) > 2) {
-              xx <- xx[[1:2]]
+              xx <- xx[1:2]
               warning('localExtreme metric can be calculated using either one or two climate variables... only the first two variables are used!')
             }
             #-
@@ -304,7 +304,7 @@ setMethod('localExtreme', signature(x1='RasterStackBrick'),
             if (missing(extreme)) stop('"extreme" is needed...!')
             #-
             if (length(xx) > 2) {
-              xx <- xx[[1:2]]
+              xx <- xx[1:2]
               warning('localExtreme metric can be calculated using either one or two climate variables... only the first two variables are used!')
             }
             #-
@@ -354,8 +354,8 @@ setMethod('localExtreme', signature(x1='list',x2='list'),
             if (length(x1) > 4)  stop('x1 and x2 should be a list with either one or two time series of climate variables!')
             
             if (length(x1) > 2) {
-              x1 <- x1[[1:2]]
-              x2 <- x2[[1:2]]
+              x1 <- x1[1:2]
+              x2 <- x2[1:2]
               warning('localExtreme metric can be calculated using either one or two climate variables... only the first two time series variables in the list are used!')
             }
             #######
