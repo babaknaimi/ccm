@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri, taheri.shi@gmail.com; Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
 # Last update :  July 2022
-# Version 1.8
+# Version 1.9
 # Licence GPL v3
 #--------
 
@@ -26,7 +26,6 @@
 #=-===============
 .is.projected <- function(x) {
   if (inherits(x,'SpatRaster')) {
-    require(terra)
     e <- as.vector(terra::ext(x))
   } else e <- as.vector(extent(x))
   
@@ -236,4 +235,13 @@
     } else n[i] <- NA
   }
   n
+}
+#------
+.require <- function(x) {
+  x <- as.character(x)
+  xx <- unlist(lapply(.libPaths(), function(lib) find.package(x, lib, quiet=TRUE, verbose=FALSE)))
+  if (length(xx) > 0) {
+    .loaded <- eval(parse(text=paste0('require(',x,')')))
+    return (.loaded)
+  } else FALSE
 }

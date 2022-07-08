@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
-# Last update :  March 2022
-# Version 2.2
+# Last update :  July 2022
+# Version 2.3
 # Licence GPL v3
 #--------
 
@@ -184,7 +184,7 @@ setMethod('novelClimate', signature(x='RasterStackBrickTS'),
           function(x,...,t1,t2) {
             xx <- list(x,...)
             
-            if (require(terra,quietly = TRUE)) {
+            if (.require("terra")) {
               for (i in 1:length(xx)) {
                 xx[[i]] <- rts(rast(xx[[i]]@raster),index(xx[[i]]@time))
               }
@@ -224,7 +224,7 @@ setMethod('novelClimate', signature(x='RasterStackBrick'),
             
             if (!is.numeric(t1) || !is.numeric(t2)) stop("t1 and t2 (layers' indicators corresponding to time1 and time2) should be a numeric vector")
             
-            if (require(terra,quietly = TRUE)) {
+            if (.require("terra")) {
               for (i in 1:length(xx)) {
                 xx[[i]] <- rast(xx[[i]])
               }
@@ -264,7 +264,7 @@ setMethod('novelClimate', signature(x='missing'),
               .ncList(x1=t1,x2=t2)
             } else {
               
-              if (require('terra',quietly = TRUE)) {
+              if (.require("terra")) {
                 if (cls %in% c('RasterStack','RasterBrick')) {
                   t1[[i]] <- rast(t1[[i]])
                   t2[[i]] <- rast(t2[[i]])

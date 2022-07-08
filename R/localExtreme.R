@@ -1,7 +1,7 @@
 # Authors: Shirin Taheri (taheri.shi@gmail.com); Babak Naimi (naimi.b@gmail.com)
 # Date :  Nov. 2020
 # Last update :  July 2022
-# Version 2.3
+# Version 2.4
 # Licence GPL v3
 #--------
 
@@ -267,7 +267,7 @@ setMethod('localExtreme', signature(x1='RasterStackBrickTS'),
             #-------------------------
             
             
-            if (require('terra',quietly = TRUE)) {
+            if (.require('terra')) {
               for (i in 1:length(xx)) {
                 xx[[i]] <- rts(rast(xx[[i]]@raster),index(xx[[i]]@time))
               }
@@ -319,7 +319,7 @@ setMethod('localExtreme', signature(x1='RasterStackBrick'),
             #-------------------------
             
             
-            if (require('terra',quietly = TRUE)) {
+            if (.require('terra')) {
               for (i in 1:length(xx)) {
                 xx[[i]] <- rast(xx[[i]])
               }
@@ -381,7 +381,7 @@ setMethod('localExtreme', signature(x1='list',x2='list'),
               .eeChange(x1,x2,extreme) 
             } else if (cls == 'RasterStackBrickTS') {
               
-              if (require('terra',quietly = TRUE)) {
+              if (.require('terra')) {
                 for (i in 1:length(x1)) {
                   x1[[i]] <- rast(x1[[i]]@raster)
                   x2[[i]] <- rast(x2[[i]]@raster)
@@ -396,7 +396,7 @@ setMethod('localExtreme', signature(x1='list',x2='list'),
               }
               
             } else if (cls == 'RasterStackBrick') {
-              if (require('terra',quietly = TRUE)) {
+              if (.require('terra')) {
                 for (i in 1:length(x1)) {
                   x1[[i]] <- rast(x1[[i]])
                   x2[[i]] <- rast(x2[[i]])
@@ -452,7 +452,7 @@ setMethod('localExtreme', signature(x1='missing',x2='missing',t1='list',t2='list
               .eeChange(x1,x2,extreme) 
             } else if (cls == 'RasterStackBrickTS') {
               
-              if (require('terra',quietly = TRUE)) {
+              if (.require('terra')) {
                 for (i in 1:length(x1)) {
                   x1[[i]] <- rast(x1[[i]]@raster)
                   x2[[i]] <- rast(x2[[i]]@raster)
@@ -467,7 +467,7 @@ setMethod('localExtreme', signature(x1='missing',x2='missing',t1='list',t2='list
               }
               
             } else if (cls == 'RasterStackBrick') {
-              if (require('terra',quietly = TRUE)) {
+              if (.require('terra')) {
                 for (i in 1:length(x1)) {
                   x1[[i]] <- rast(x1[[i]])
                   x2[[i]] <- rast(x2[[i]])
