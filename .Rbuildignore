@@ -1,0 +1,7 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^packrat/
+^\.Rprofile$
+README.md
+README.Rmd
+README_files
