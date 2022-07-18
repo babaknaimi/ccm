@@ -23,9 +23,21 @@
 Standardized Local Anomalies is one of the climate change metrics to quantify the change between two time periods.
 
 }
+
+\value{
+A single Raster layer (RasterLayer or SpatRaster depending on the input)
+}
+
+
+\author{Shirin Taheri; Babak Naimi
+
+\email{taheri.shi@gmail.com}; \email{naimi.b@gmail.com}
+
+}
+
 \examples{
-\dontrun{
-filePath <- system.file("external/", package="climetircs") # path to the dataset folder
+\donttest{
+filePath <- system.file("external/", package="climetrics") # path to the dataset folder
 
 # read the climate variables using the terra package (you can use the raster package as well):
 
@@ -33,7 +45,7 @@ pr <- rast(paste0(filePath,'/precip.tif'))
 tmin <- rast(paste0(filePath,'/tmin.tif'))
 tmax <- rast(paste0(filePath,'/tmax.tif'))
 
-n <- readRDS(paste0(filePath,'/dates.rds')) # read corresoinding dates
+n <- readRDS(paste0(filePath,'/dates.rds')) # read corresponding dates
 
 head(n) # Dates corresponds to the layers in climate variables (pr, tmin, tmax, tmean)
 

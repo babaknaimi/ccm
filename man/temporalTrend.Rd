@@ -20,8 +20,20 @@
 }
 
 \description{
-The method calculates the trend of a climate variale changes over time. The function use a Raster time series as input and returns a Raster object that represent the trend at the pixel level.
+The method calculates the trend of a climate variable changes over time. The function use a Raster time series as input and returns a Raster object that represent the trend at the pixel level.
 }
+
+\value{
+A single Raster layer (RasterLayer or SpatRaster depending on the input)
+}
+
+
+\author{Shirin Taheri; Babak Naimi
+
+\email{taheri.shi@gmail.com}; \email{naimi.b@gmail.com}
+
+}
+
 \examples{
 filePath <- system.file("external/", package="climetrics") # path to the dataset folder
 
