@@ -1,11 +1,11 @@
 Package: climetrics
 Type: Package
 Title: Climate Change Metrics
-Version: 1.0-9
-Date: 2023-01-30
-Depends: methods, sp (>= 1.2-0), R (>= 3.5.0), rts
+Version: 1.0-13
+Date: 2024-04-17
+Depends: methods, R (>= 3.5.0), rts
 Imports: raster, terra, zoo, yaImpute, xts
-Suggests: R.rsp
+Suggests: R.rsp, tinytest
 VignetteBuilder: R.rsp
 Description: A framework that facilitates spatio-temporal analysis of climate dynamics through exploring and measuring different dimensions of climate change in space and time.
 License: GPL (>= 3)
