@@ -14,15 +14,18 @@ tmean.t <- rts(tmean,n)
 
 
 dv <- dVelocity(pr.t,tmean.t,t1='1991/2000',t2='2010/2020')
+names(dv) <- 'dVelocity'
 
 ve <- velocity(x1=pr.t,x2=tmean.t,t1='1991/2000',t2='2010/2020')
+names(ve) <- 'velocity'
 
-v <- ccm(pr.t,tmean.t,t1='1991/2000',t2='2010/2020',stat=c('dVelocity'))
+v <- ccm(pr.t,tmean.t,t1='1991/2000',t2='2010/2020',stat=c('dVelocity','velocity'))
 
 
 expect_equal(round(sum(dv[],na.rm=T)),3136)
 
 expect_equal(round(sum(ve[],na.rm=T)),46577)
 
+expect_equivalent(dv,v[[1]])
 
-expect_equivalent(dv,v)
+expect_equivalent(ve,v[[2]])
